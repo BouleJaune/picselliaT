@@ -1,0 +1,10 @@
+source /home/xenio/Documents/object-detection/venv1/bin/activate
+cd /home/xenio/Documents/object-detection/tf_models/models/research
+export PYTHONPATH=$PYTHONPATH:`pwd`:`pwd`/slim 
+export TF_FORCE_GPU_ALLOW_GROWTH=true 
+
+
+python object_detection/model_main.py  \
+--pipeline_config_path=/home/xenio/Documents/object-detection/test/MaskRCNN-inception/pipeline.config \
+--model_dir=/home/xenio/Documents/object-detection/test/MaskRCNN-inception/cp \
+--num_train_steps=300 --sample_1_of_n_eval_examples=1 --alsologtostderr
