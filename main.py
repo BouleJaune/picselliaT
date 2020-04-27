@@ -10,13 +10,13 @@ import os
 import numpy as np 
 import cv2
 
-flags = tf.app.flags
-flags.DEFINE_string('output_path', '', 'Path to output TFRecord')
-flags.DEFINE_string('model_dir', None, 'Path to model')
-flags.DEFINE_integer("batch_size", None, 'Batch size')
-flags.DEFINE_float('learning_rate', None, 'Learning rate')
-FLAGS = flags.FLAGS
-json_file_path = "annotations/annotationPoly.json"
+# flags = tf.app.flags
+# flags.DEFINE_string('output_path', '', 'Path to output TFRecord')
+# flags.DEFINE_string('model_dir', None, 'Path to model')
+# flags.DEFINE_integer("batch_size", None, 'Batch size')
+# flags.DEFINE_float('learning_rate', None, 'Learning rate')
+# FLAGS = flags.FLAGS
+# json_file_path = "annotations/annotationPoly.json"
 
 
 
@@ -144,8 +144,6 @@ def create_label_map(json_file_path):
         labelmap_file.close()
     print("label_map.pbtxt crée")
         
-label_map = label_map_util.load_labelmap("label_map.pbtxt")
-
 
 def update_num_classes(model_config, label_map):
     ''' Mets à jour num_classes dans la config protobuf par rapport au nombre de label de la label_map
@@ -250,19 +248,21 @@ def edit_config(model_path=None, batch_size=None, learning_rate=None):
     print("successfully saved in "+model_path)
 
 
-def main(unused_argv):
-    flags.mark_flag_as_required('model_dir')
-    flags.mark_flag_as_required('pipeline_config_path')
-    config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir)
+def train(model_dir=None, pipeline_config_path=None, num_train_steps=None, eval_training_data=False, 
+            sample_1_of_n_eval_examples=1, sample_1_of_n_eval_on_train_examples=5, hparams_overrides=None,
+            checkpoint_dir=None, run_once=False):
+
+    if model_dir==None or pipeline_config_path=None:
+        raise Exception("Please model_dir and pipeline config path")
+    config = tf.estimator.RunConfig(model_dir=model_dir)
 
     train_and_eval_dict = model_lib.create_estimator_and_inputs(
         run_config=config,
-        hparams=model_hparams.create_hparams(FLAGS.hparams_overrides),
-        pipeline_config_path=FLAGS.pipeline_config_path,
-        train_steps=FLAGS.num_train_steps,
-        sample_1_of_n_eval_examples=FLAGS.sample_1_of_n_eval_examples,
-        sample_1_of_n_eval_on_train_examples=(
-            FLAGS.sample_1_of_n_eval_on_train_examples))
+        hparams=model_hparams.create_hparams(hparams_overrides),
+        pipeline_config_path=pipeline_config_path,
+        train_steps=num_train_steps,
+        sample_1_of_n_eval_examples=sample_1_of_n_eval_examples,
+        sample_1_of_n_eval_on_train_examples=(sample_1_of_n_eval_on_train_examples))
     estimator = train_and_eval_dict['estimator']
     train_input_fn = train_and_eval_dict['train_input_fn']
     eval_input_fns = train_and_eval_dict['eval_input_fns']
@@ -270,21 +270,20 @@ def main(unused_argv):
     predict_input_fn = train_and_eval_dict['predict_input_fn']
     train_steps = train_and_eval_dict['train_steps']
 
-    if FLAGS.checkpoint_dir:
-        if FLAGS.eval_training_data:
-        name = 'training_data'
-        input_fn = eval_on_train_input_fn
+    if checkpoint_dir is not None:
+        if eval_training_data is not None:
+            name = 'training_data'
+            input_fn = eval_on_train_input_fn
         else:
-        name = 'validation_data'
-        # The first eval input will be evaluated.
-        input_fn = eval_input_fns[0]
-        if FLAGS.run_once:
-        estimator.evaluate(input_fn,
+            name = 'validation_data'
+            # The first eval input will be evaluated.
+            input_fn = eval_input_fns[0]
+        if run_once:
+            estimator.evaluate(input_fn,
                             steps=None,
-                            checkpoint_path=tf.train.latest_checkpoint(
-                                FLAGS.checkpoint_dir))
+                            checkpoint_path=tf.train.latest_checkpoint(checkpoint_dir))
         else:
-        model_lib.continuous_eval(estimator, FLAGS.checkpoint_dir, input_fn,
+            model_lib.continuous_eval(estimator, checkpoint_dir, input_fn,
                                     train_steps, name)
     else:
         train_spec, eval_specs = model_lib.create_train_and_eval_specs(
