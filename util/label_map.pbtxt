@@ -1,0 +1,8 @@
+item {
+	name: "label1"
+	id: 1
+}
+item {
+	name: "label2"
+	id: 2
+}
