@@ -81,7 +81,7 @@ parso==0.7.0
 peewee==3.13.2
 pexpect==4.2.1
 pickleshare==0.7.5
-picsellia==0.0.8
+picsellia==0.1.2
 Pillow==5.1.0
 progressbar==2.5
 prometheus-client==0.7.1
