@@ -96,7 +96,7 @@ def create_record_files(label_path, record_dir, tfExample_generator):
         writer.close()
         print('Successfully created the TFRecords: {}'.format(output_path))
 
-#ok 5Rif9Sh2
+#ok 
 def update_num_classes(model_config, label_map):
     ''' Mets à jour num_classes dans la config protobuf par rapport au nombre de label de la label_map
 
