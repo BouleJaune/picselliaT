@@ -13,12 +13,18 @@ import numpy as np
 import cv2
 from picsellia import Client
 
+import functools
+from object_detection.builders import dataset_builder
+from object_detection.builders import graph_rewriter_builder
+from object_detection.builders import model_builder
+from object_detection.legacy import trainer
+
 # flags = tf.app.flags
-# flags.DEFINE_string('output_path', '', 'Path to output TFRecord')
-# flags.DEFINE_string('model_dir', None, 'Path to model')
-# flags.DEFINE_integer("batch_size", None, 'Batch size')
-# flags.DEFINE_float('learning_rate', None, 'Learning rate')
-# FLAGS = flags.FLAGS
+# DEFINE_string('output_path', '', 'Path to output TFRecord')
+# DEFINE_string('model_dir', None, 'Path to model')
+# DEFINE_integer("batch_size", None, 'Batch size')
+# DEFINE_float('learning_rate', None, 'Learning rate')
+# FLAGS = FLAGS
 # json_file_path = "annotations/annotationPoly.json"
 
 def create_label_map(json_file_path):
@@ -44,8 +50,10 @@ def create_label_map(json_file_path):
         labelmap_file.close()
     print("label_map.pbtxt crée")
         
-#ok
-def create_record_file(client, output_path, label_map):
+'''client en arg, si on veut pas client en arg il faudrait mettre un generateur en arg, 
+faire un générateur ici, le mettre en arg par défaut et quand nous on l'appelle on le change
+'''
+def create_record_files(label_path, record_dir, tfExample_generator):
     '''
         Ne gère que des fichiers d'annotations entièrement avec geometry = polygon et sans 'vide'!!
         
@@ -56,34 +64,38 @@ def create_record_file(client, output_path, label_map):
             output_path: Doit contenir le nom du fichier (path/to/record/file.record)
             label_map: Sous format protobuf
     '''
-    writer = tf.python_io.TFRecordWriter(output_path)
+    label_map = label_map_util.load_labelmap(label_path)
     label_map = label_map_util.get_label_map_dict(label_map) 
-
-    for variables in client.tf_vars_generator(label_map):
-        (width, height, xmins, xmaxs, ymins, ymaxs, filename,
-                encoded_jpg, image_format, classes_text, classes, masks) = variables
-
-        tf_example = tf.train.Example(features=tf.train.Features(feature={
-            'image/height': dataset_util.int64_feature(height),
-            'image/width': dataset_util.int64_feature(width),
-            'image/filename': dataset_util.bytes_feature(filename),
-            'image/source_id': dataset_util.bytes_feature(filename),
-            'image/encoded': dataset_util.bytes_feature(encoded_jpg),
-            'image/format': dataset_util.bytes_feature(image_format),
-            'image/object/bbox/xmin': dataset_util.float_list_feature(xmins),
-            'image/object/bbox/xmax': dataset_util.float_list_feature(xmaxs),
-            'image/object/bbox/ymin': dataset_util.float_list_feature(ymins),
-            'image/object/bbox/ymax': dataset_util.float_list_feature(ymaxs),
-            'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
-            'image/object/class/label': dataset_util.int64_list_feature(classes),
-            'image/object/mask': dataset_util.bytes_list_feature(masks)
-        }))
-        writer.write(tf_example.SerializeToString())
+    ensembles = ["train", "eval"]
     
-    writer.close()
-    print('Successfully created the TFRecords: {}'.format(output_path))
+    for ensemble in ensembles:
+        output_path = record_dir+ensemble+".record"
+        writer = tf.python_io.TFRecordWriter(output_path)
+        for variables in tfExample_generator(label_map, ensemble=ensemble):
+            (width, height, xmins, xmaxs, ymins, ymaxs, filename,
+                    encoded_jpg, image_format, classes_text, classes, masks) = variables
 
-#ok
+            tf_example = tf.train.Example(features=tf.train.Features(feature={
+                'image/height': dataset_util.int64_feature(height),
+                'image/width': dataset_util.int64_feature(width),
+                'image/filename': dataset_util.bytes_feature(filename),
+                'image/source_id': dataset_util.bytes_feature(filename),
+                'image/encoded': dataset_util.bytes_feature(encoded_jpg),
+                'image/format': dataset_util.bytes_feature(image_format),
+                'image/object/bbox/xmin': dataset_util.float_list_feature(xmins),
+                'image/object/bbox/xmax': dataset_util.float_list_feature(xmaxs),
+                'image/object/bbox/ymin': dataset_util.float_list_feature(ymins),
+                'image/object/bbox/ymax': dataset_util.float_list_feature(ymaxs),
+                'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
+                'image/object/class/label': dataset_util.int64_list_feature(classes),
+                'image/object/mask': dataset_util.bytes_list_feature(masks)
+            }))
+            writer.write(tf_example.SerializeToString())
+    
+        writer.close()
+        print('Successfully created the TFRecords: {}'.format(output_path))
+
+#ok 5Rif9Sh2
 def update_num_classes(model_config, label_map):
     ''' Mets à jour num_classes dans la config protobuf par rapport au nombre de label de la label_map
 
@@ -102,6 +114,7 @@ def update_num_classes(model_config, label_map):
         model_config.ssd.num_classes = n_classes
     else:
         raise ValueError("Expected the model to be one of 'faster_rcnn' or 'ssd'.")
+
 
 #ok
 def update_different_paths(config_dict, ckpt_path, label_map_path, train_record_path, eval_record_path):
@@ -127,12 +140,12 @@ def edit_masks(configs, mask_type="PNG_MASKS"):
         configs["train_input_config"].mask_type = 2
         configs["eval_input_config"].mask_type = 2
     elif mask_type=="NUMERICAL_MASKS":
-        configs["train_input_config"].mask_type = 2
-        configs["eval_input_config"].mask_type = 2
+        configs["train_input_config"].mask_type = 1
+        configs["eval_input_config"].mask_type = 1
     else:
         raise ValueError("Wrong Mask type provided")
 #ok
-def edit_config(model_selected, model_output, label_map_path, masks=None, batch_size=None, learning_rate=None):
+def edit_config(model_selected, config_output_dir, label_map_path, record_dir, masks=None, num_steps=None, batch_size=None, learning_rate=None):
 
     '''
         Suppose que la label_map et les .record sont générés
@@ -146,13 +159,13 @@ def edit_config(model_selected, model_output, label_map_path, masks=None, batch_
         Raises:
             Exception si le model_path n'est pas fourni
     '''
-
-
     configs = config_util.get_configs_from_pipeline_file(model_selected+'/pipeline.config')
     label_map = label_map_util.load_labelmap(label_map_path)
 
     # configs["eval_config"].metrics_set="coco_detection_metrics"
 
+    if num_steps is not None:
+        config_util._update_train_steps(configs, num_steps)
 
     if learning_rate is not None:
         ''' Update learning rate
@@ -177,11 +190,13 @@ def edit_config(model_selected, model_output, label_map_path, masks=None, batch_
 
     update_num_classes(configs["model"], label_map)
     update_different_paths(configs, ckpt_path=model_selected+"/model.ckpt", label_map_path=label_map_path, 
-                                train_record_path=model_output+"train.record", eval_record_path=model_output+"train.record")
+                                train_record_path=record_dir+"train.record", eval_record_path=record_dir+"eval.record")
 
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
-    config_util.save_pipeline_config(config_proto, directory=model_output)
-    print("Configuration successfully edited and saved in "+model_output)
+    config_util.save_pipeline_config(config_proto, directory=config_output_dir)
+    print("Configuration successfully edited and saved in "+config_output_dir)
+
+
 
 
 
@@ -271,3 +286,102 @@ def train(model_dir=None, pipeline_config_path=None, num_train_steps=None, eval_
 
         # Currently only a single Eval Spec is allowed.
         tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0])
+
+
+
+
+def legacy_train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1, ps_tasks=0, 
+                    train_dir='', pipeline_config_path='', train_config_path='', input_config_path='', model_config_path=''):
+    
+    tf.logging.set_verbosity(tf.logging.INFO)
+    assert train_dir, '`train_dir` is missing.'
+    if task == 0: tf.gfile.MakeDirs(train_dir)
+    if pipeline_config_path:
+        configs = config_util.get_configs_from_pipeline_file(pipeline_config_path)
+        if task == 0:
+            tf.gfile.Copy(pipeline_config_path,
+                          os.path.join(train_dir, 'pipeline.config'),
+                          overwrite=True)
+    else:
+        configs = config_util.get_configs_from_multiple_files(
+                        model_config_path=model_config_path,
+                        train_config_path=train_config_path,
+                        train_input_config_path=input_config_path)
+        if task == 0:
+            for name, config in [('model.config', model_config_path),
+                                ('train.config', train_config_path),
+                                ('input.config', input_config_path)]:
+                tf.gfile.Copy(config, os.path.join(train_dir, name),
+                            overwrite=True)
+
+    model_config = configs['model']
+    train_config = configs['train_config']
+    input_config = configs['train_input_config']
+
+    model_fn = functools.partial(
+        model_builder.build,
+        model_config=model_config,
+        is_training=True)
+
+    def get_next(config):
+        return dataset_builder.make_initializable_iterator(
+            dataset_builder.build(config)).get_next()
+
+    create_input_dict_fn = functools.partial(get_next, input_config)
+
+    env = json.loads(os.environ.get('TF_CONFIG', '{}'))
+    cluster_data = env.get('cluster', None)
+    cluster = tf.train.ClusterSpec(cluster_data) if cluster_data else None
+    task_data = env.get('task', None) or {'type': 'master', 'index': 0}
+    task_info = type('TaskSpec', (object,), task_data)
+
+    # Parameters for a single worker.
+    ps_tasks = 0
+    worker_replicas = 1
+    worker_job_name = 'lonely_worker'
+    task = 0
+    is_chief = True
+    master = ''
+
+    if cluster_data and 'worker' in cluster_data:
+    # Number of total worker replicas include "worker"s and the "master".
+        worker_replicas = len(cluster_data['worker']) + 1
+    if cluster_data and 'ps' in cluster_data:
+        ps_tasks = len(cluster_data['ps'])
+
+    if worker_replicas > 1 and ps_tasks < 1:
+        raise ValueError('At least 1 ps task is needed for distributed training.')
+
+    if worker_replicas >= 1 and ps_tasks > 0:
+    # Set up distributed training.
+        server = tf.train.Server(tf.train.ClusterSpec(cluster), protocol='grpc',
+                                job_name=task_info.type,
+                                task_index=task_info.index)
+        if task_info.type == 'ps':
+            server.join()
+            return
+
+        worker_job_name = '%s/task:%d' % (task_info.type, task_info.index)
+        task = task_info.index
+        is_chief = (task_info.type == 'master')
+        master = server.target
+
+    graph_rewriter_fn = None
+    if 'graph_rewriter_config' in configs:
+        graph_rewriter_fn = graph_rewriter_builder.build(
+            configs['graph_rewriter_config'], is_training=True)
+
+    trainer.train(
+        create_input_dict_fn,
+        model_fn,
+        train_config,
+        master,
+        task,
+        num_clones,
+        worker_replicas,
+        clone_on_cpu,
+        ps_tasks,
+        worker_job_name,
+        is_chief,
+        train_dir,
+        graph_hook_fn=graph_rewriter_fn)
