@@ -14,6 +14,7 @@ import cv2
 from picsellia import Client
 
 import functools
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 from object_detection.builders import dataset_builder
 from object_detection.builders import graph_rewriter_builder
 from object_detection.builders import model_builder
@@ -145,7 +146,7 @@ def edit_masks(configs, mask_type="PNG_MASKS"):
     else:
         raise ValueError("Wrong Mask type provided")
 #ok
-def edit_config(model_selected, config_output_dir, label_map_path, record_dir, masks=None, num_steps=None, batch_size=None, learning_rate=None):
+def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, masks=None, batch_size=None, learning_rate=None):
 
     '''
         Suppose que la label_map et les .record sont générés
@@ -159,13 +160,12 @@ def edit_config(model_selected, config_output_dir, label_map_path, record_dir, m
         Raises:
             Exception si le model_path n'est pas fourni
     '''
-    configs = config_util.get_configs_from_pipeline_file(model_selected+'/pipeline.config')
+    configs = config_util.get_configs_from_pipeline_file(model_selected+'pipeline.config')
     label_map = label_map_util.load_labelmap(label_map_path)
 
     # configs["eval_config"].metrics_set="coco_detection_metrics"
 
-    if num_steps is not None:
-        config_util._update_train_steps(configs, num_steps)
+    config_util._update_train_steps(configs, num_steps)
 
     if learning_rate is not None:
         ''' Update learning rate
@@ -189,15 +189,22 @@ def edit_config(model_selected, config_output_dir, label_map_path, record_dir, m
 
 
     update_num_classes(configs["model"], label_map)
-    update_different_paths(configs, ckpt_path=model_selected+"/model.ckpt", label_map_path=label_map_path, 
+    update_different_paths(configs, ckpt_path=model_selected+"model.ckpt", label_map_path=label_map_path, 
                                 train_record_path=record_dir+"train.record", eval_record_path=record_dir+"eval.record")
 
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
     config_util.save_pipeline_config(config_proto, directory=config_output_dir)
     print("Configuration successfully edited and saved in "+config_output_dir)
 
-
-
+def edit_config_resume_from_ckpt(ckpt_path, previous_config_dir, num_steps):
+    configs = config_util.get_configs_from_pipeline_file(previous_config_dir+"pipeline.config")
+    ckpt_steps = configs["train_config"].num_steps
+    configs["train_config"].fine_tune_checkpoint = ckpt_path+str(ckpt_steps)+"/"+"model.ckpt-"+str(ckpt_steps)
+    added_num_steps =  ckpt_steps + num_steps
+    config_util._update_train_steps(configs, added_num_steps)
+    config_proto = config_util.create_pipeline_proto_from_configs(configs)
+    config_util.save_pipeline_config(config_proto, directory=previous_config_dir)
+    print("Configuration successfully edited to resume from checkpoint")
 
 
 def train(model_dir=None, pipeline_config_path=None, num_train_steps=None, eval_training_data=False, 
@@ -293,6 +300,9 @@ def train(model_dir=None, pipeline_config_path=None, num_train_steps=None, eval_
 def legacy_train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1, ps_tasks=0, 
                     train_dir='', pipeline_config_path='', train_config_path='', input_config_path='', model_config_path=''):
     
+    configs = config_util.get_configs_from_pipeline_file(pipeline_config_path)
+    train_dir = train_dir+str(configs["train_config"].num_steps)
+
     tf.logging.set_verbosity(tf.logging.INFO)
     assert train_dir, '`train_dir` is missing.'
     if task == 0: tf.gfile.MakeDirs(train_dir)
@@ -385,3 +395,26 @@ def legacy_train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_rep
         is_chief,
         train_dir,
         graph_hook_fn=graph_rewriter_fn)
+
+
+
+
+def tfevents_to_json(path, log_dir):
+    events = [filename for filename in os.listdir(path) if filename.startswith("events.out")]
+    for k,event in enumerate(events):
+        event_acc = EventAccumulator(path+event).Reload()
+        logs = dict()
+        for scalar_key in event_acc.scalars.Keys():
+            scalar_dict = {"wall_time": [], "step": [], "value": []}
+            for scalars in event_acc.Scalars(scalar_key):
+                scalar_dict["wall_time"].append(scalars.wall_time)
+                scalar_dict["step"].append(scalars.step)
+                scalar_dict["value"].append(scalars.value)
+            logs[scalar_key] = scalar_dict
+        with open(log_dir+"logs"+str(k+1)+".json", "w") as f:
+            json.dump(logs, f)
+
+        tags = event_acc.Tags().keys()
+        print(tags)
+
+
