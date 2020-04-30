@@ -1,31 +1,34 @@
 import tensorflow as tf
 import cv2
 import numpy as np
+import os
 from object_detection.utils import ops as utils_ops
 from object_detection.utils import visualization_utils as vis_util
 from PIL import Image
 from IPython.display import display
 from object_detection.utils import label_map_util
 import pandas as pd
+import random
 
 
 
-PATH_TO_LABELS = 'MaskRCNN-inception/label_map.pbtxt'
-img_path = "test.jpg"
-model_path = "MaskRCNN-inception/model/saved_model"
-dim = (426, 640)
-def infer(list_files, model_path):
-    predict_fn = tf.contrib.predictor.from_saved_model(model_path)
+
+def infer(path_list, exported_model_path, label_map_path, results_dir, num_infer=5, min_score_thresh=0.5):
+    '''saved_model must be saved with input_type = "image_tensor"
+    '''
+    saved_model_path = exported_model_path+"saved_model/"
+    predict_fn = tf.contrib.predictor.from_saved_model(saved_model_path)
+    random.shuffle(path_list)
+    path_list = path_list[:num_infer]
     with tf.Session() as sess:
-        for file_name in list_files:
-            img_path = "MaskRCNN-inception/Images/"+file_name
+        category_index = label_map_util.create_category_index_from_labelmap(label_map_path)
+        for img_path in path_list:
             img = cv2.imread(img_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img_tensor = np.expand_dims(img, 0)
             output_dict = predict_fn({"inputs": img_tensor})
-            category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABELS, use_display_name=True)
-
-
+            
+           
 
             num_detections = int(output_dict.pop('num_detections'))
             output_dict = {key:value[0, :num_detections] for key,value in output_dict.items()}
@@ -53,16 +56,17 @@ def infer(list_files, model_path):
             s = []
             m = []
             k = 0
+            # print(category_index)
             for classe in classes:
-                if classe==1 or classe==2:
-                    b.append(boxes[k])
-                    c.append(classe)
-                    s.append(scores[k])
-                    m.append(masks[k])
+                # if classe in category_index.keys():
+                b.append(boxes[k])
+                c.append(classe)
+                s.append(scores[k])
+                m.append(masks[k])
                 k+=1
-
             boxes = np.array(b)
             classes = np.array(c)
+            # print(scores)
             scores = np.array(s)
             masks = np.array(m)
 
@@ -73,23 +77,11 @@ def infer(list_files, model_path):
                                                 category_index,
                                                 instance_masks=masks,
                                                 use_normalized_coordinates=True,
-                                                line_thickness=7)
+                                                line_thickness=7,
+                                                min_score_thresh=min_score_thresh)
+            img_name = img_path.split("/")[-1]
+            Image.fromarray(img).save(results_dir+img_name)
 
-            Image.fromarray(img).show()
 
 
 
-list_files = [
-    "architectural-design-architecture-ceiling-chairs-380768.jpg",
-    "architecture-book-shelves-bookcase-chairs-245240.jpg",
-    "chairs-daylight-designer-empty-416320.jpg",
-    "group-of-people-watching-on-laptop-1595385.jpg",
-    "orange-excavator-on-brown-hill-1116035.jpg",
-    "radiography.jpg",
-    "three-woman-sitting-on-white-chair-in-front-of-table-2041627.jpg",
-    "two_bears.jpg",
-    "voitures.jpg",
-    "yellow-tractor-in-asphalt-road-771146.jpg"
-]
-
-infer(list_files, model_path)

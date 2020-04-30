@@ -20,13 +20,10 @@ from object_detection.builders import graph_rewriter_builder
 from object_detection.builders import model_builder
 from object_detection.legacy import trainer
 
-# flags = tf.app.flags
-# DEFINE_string('output_path', '', 'Path to output TFRecord')
-# DEFINE_string('model_dir', None, 'Path to model')
-# DEFINE_integer("batch_size", None, 'Batch size')
-# DEFINE_float('learning_rate', None, 'Learning rate')
-# FLAGS = FLAGS
-# json_file_path = "annotations/annotationPoly.json"
+from google.protobuf import text_format
+from object_detection import exporter
+from object_detection.protos import pipeline_pb2
+
 
 def create_label_map(json_file_path):
     '''
@@ -146,8 +143,7 @@ def edit_masks(configs, mask_type="PNG_MASKS"):
     else:
         raise ValueError("Wrong Mask type provided")
 #ok
-def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, masks=None, batch_size=None, learning_rate=None):
-
+def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, training_id=0, masks=None, batch_size=None, learning_rate=None):
     '''
         Suppose que la label_map et les .record sont générés
         Potentiellement mettre en argument la label_map plutôt que la reload
@@ -164,8 +160,11 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     label_map = label_map_util.load_labelmap(label_map_path)
 
     # configs["eval_config"].metrics_set="coco_detection_metrics"
-
-    config_util._update_train_steps(configs, num_steps)
+    if training_id==0:
+        config_util._update_train_steps(configs, num_steps)
+    else:
+        prev_num_steps = configs["train_config"].num_steps
+        config_util._update_train_steps(configs, prev_num_steps+num_steps)
 
     if learning_rate is not None:
         ''' Update learning rate
@@ -194,17 +193,6 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
 
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
     config_util.save_pipeline_config(config_proto, directory=config_output_dir)
-    print("Configuration successfully edited and saved in "+config_output_dir)
-
-def edit_config_resume_from_ckpt(ckpt_path, previous_config_dir, num_steps):
-    configs = config_util.get_configs_from_pipeline_file(previous_config_dir+"pipeline.config")
-    ckpt_steps = configs["train_config"].num_steps
-    configs["train_config"].fine_tune_checkpoint = ckpt_path+str(ckpt_steps)+"/"+"model.ckpt-"+str(ckpt_steps)
-    added_num_steps =  ckpt_steps + num_steps
-    config_util._update_train_steps(configs, added_num_steps)
-    config_proto = config_util.create_pipeline_proto_from_configs(configs)
-    config_util.save_pipeline_config(config_proto, directory=previous_config_dir)
-    print("Configuration successfully edited to resume from checkpoint")
 
 
 def train(model_dir=None, pipeline_config_path=None, num_train_steps=None, eval_training_data=False, 
@@ -265,7 +253,6 @@ def train(model_dir=None, pipeline_config_path=None, num_train_steps=None, eval_
     predict_input_fn = train_and_eval_dict['predict_input_fn']
     train_steps = train_and_eval_dict['train_steps']
 
-    
 
     if checkpoint_dir is not None:
         if eval_training_data is not None:
@@ -295,15 +282,13 @@ def train(model_dir=None, pipeline_config_path=None, num_train_steps=None, eval_
         tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0])
 
 
-
-
 def legacy_train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1, ps_tasks=0, 
-                    train_dir='', pipeline_config_path='', train_config_path='', input_config_path='', model_config_path=''):
-    
+                    ckpt_dir='', conf_dir='', train_config_path='', input_config_path='', model_config_path=''):   
+    train_dir = ckpt_dir
+    pipeline_config_path = conf_dir+"pipeline.config"
     configs = config_util.get_configs_from_pipeline_file(pipeline_config_path)
-    train_dir = train_dir+str(configs["train_config"].num_steps)
 
-    tf.logging.set_verbosity(tf.logging.INFO)
+    # tf.logging.set_verbosity(tf.logging.INFO)
     assert train_dir, '`train_dir` is missing.'
     if task == 0: tf.gfile.MakeDirs(train_dir)
     if pipeline_config_path:
@@ -397,24 +382,33 @@ def legacy_train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_rep
         graph_hook_fn=graph_rewriter_fn)
 
 
+def tfevents_to_dict(path):
+    event = [filename for filename in os.listdir(path) if filename.startswith("events.out")][0]
+    event_acc = EventAccumulator(path+event).Reload()
+    logs = dict()
+    for scalar_key in event_acc.scalars.Keys():
+        scalar_dict = {"wall_time": [], "step": [], "value": []}
+        for scalars in event_acc.Scalars(scalar_key):
+            scalar_dict["wall_time"].append(scalars.wall_time)
+            scalar_dict["step"].append(scalars.step)
+            scalar_dict["value"].append(scalars.value)
+        logs[scalar_key] = scalar_dict
+    return logs
 
 
-def tfevents_to_json(path, log_dir):
-    events = [filename for filename in os.listdir(path) if filename.startswith("events.out")]
-    for k,event in enumerate(events):
-        event_acc = EventAccumulator(path+event).Reload()
-        logs = dict()
-        for scalar_key in event_acc.scalars.Keys():
-            scalar_dict = {"wall_time": [], "step": [], "value": []}
-            for scalars in event_acc.Scalars(scalar_key):
-                scalar_dict["wall_time"].append(scalars.wall_time)
-                scalar_dict["step"].append(scalars.step)
-                scalar_dict["value"].append(scalars.value)
-            logs[scalar_key] = scalar_dict
-        with open(log_dir+"logs"+str(k+1)+".json", "w") as f:
-            json.dump(logs, f)
 
-        tags = event_acc.Tags().keys()
-        print(tags)
 
+
+def export_infer_graph(ckpt_dir, exported_model_dir, pipeline_config_path,
+                        write_inference_graph=False, input_type="image_tensor", input_shape=None):
+    pipeline_config_path = pipeline_config_path+"pipeline.config"
+    config_dict = config_util.get_configs_from_pipeline_file(pipeline_config_path)
+    ckpt_number = str(config_dict["train_config"].num_steps)
+    pipeline_config = config_util.create_pipeline_proto_from_configs(config_dict)
+
+    trained_checkpoint_prefix = ckpt_dir+'model.ckpt-'+ckpt_number
+    exporter.export_inference_graph(
+        input_type, pipeline_config, trained_checkpoint_prefix,
+        exported_model_dir, input_shape=input_shape,
+        write_inference_graph=write_inference_graph)
 

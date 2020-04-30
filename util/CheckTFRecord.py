@@ -6,7 +6,7 @@ from object_detection.protos import string_int_label_map_pb2 as pb
 from object_detection.data_decoders.tf_example_decoder import TfExampleDecoder as TfDecoder
 from google.protobuf import text_format
 
-def main(tfrecords_filename, label_map=None):
+def load_records_as_list(tfrecords_filename, label_map=None):
     if label_map is not None:
         label_map_proto = pb.StringIntLabelMap()
         with tf.gfile.GFile(label_map,'r') as f:
@@ -22,14 +22,3 @@ def main(tfrecords_filename, label_map=None):
         example = decoder.decode(record)
         list_examples.append(sess.run(example))
     return list_examples
-
-list_examples = main(tfrecords_filename="train.record", label_map="label_map.pbtxt")
-
-plt.imshow(list_examples[1]['image'])
-plt.savefig("euh.jpg")
-
-print(list_examples[0].keys())
-
-print(list_examples[0]["groundtruth_area"])
-
-print(list_examples[0]["groundtruth_classes"])
