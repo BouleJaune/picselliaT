@@ -48,9 +48,8 @@ def create_label_map(json_file_path):
         labelmap_file.close()
     print("label_map.pbtxt crée")
         
-'''client en arg, si on veut pas client en arg il faudrait mettre un generateur en arg, 
-faire un générateur ici, le mettre en arg par défaut et quand nous on l'appelle on le change
-'''
+
+
 def create_record_files(label_path, record_dir, tfExample_generator):
     '''
         Ne gère que des fichiers d'annotations entièrement avec geometry = polygon et sans 'vide'!!
@@ -162,9 +161,18 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     # configs["eval_config"].metrics_set="coco_detection_metrics"
     if training_id==0:
         config_util._update_train_steps(configs, num_steps)
+        update_different_paths(configs, ckpt_path=model_selected+"model.ckpt", 
+                                label_map_path=label_map_path, 
+                                train_record_path=record_dir+"train.record", 
+                                eval_record_path=record_dir+"eval.record")
+
     else:
         prev_num_steps = configs["train_config"].num_steps
-        config_util._update_train_steps(configs, prev_num_steps+num_steps)
+        config_util._update_train_steps(configs, num_steps)
+        update_different_paths(configs, ckpt_path=model_selected+"model.ckpt-"+str(prev_num_steps), 
+                                label_map_path=label_map_path, 
+                                train_record_path=record_dir+"train.record", 
+                                eval_record_path=record_dir+"eval.record")
 
     if learning_rate is not None:
         ''' Update learning rate
@@ -186,11 +194,7 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     if masks is not None:
         edit_masks(configs, mask_type=masks)
 
-
     update_num_classes(configs["model"], label_map)
-    update_different_paths(configs, ckpt_path=model_selected+"model.ckpt", label_map_path=label_map_path, 
-                                train_record_path=record_dir+"train.record", eval_record_path=record_dir+"eval.record")
-
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
     config_util.save_pipeline_config(config_proto, directory=config_output_dir)
 
@@ -288,7 +292,7 @@ def legacy_train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_rep
     pipeline_config_path = conf_dir+"pipeline.config"
     configs = config_util.get_configs_from_pipeline_file(pipeline_config_path)
 
-    # tf.logging.set_verbosity(tf.logging.INFO)
+    tf.logging.set_verbosity(tf.logging.INFO)
     assert train_dir, '`train_dir` is missing.'
     if task == 0: tf.gfile.MakeDirs(train_dir)
     if pipeline_config_path:
