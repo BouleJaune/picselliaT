@@ -13,10 +13,10 @@ import random
 
 
 
-def infer(path_list, exported_model_path, label_map_path, results_dir, num_infer=5, min_score_thresh=0.5):
+def infer(path_list, exported_model_dir, label_map_path, results_dir, num_infer=5, min_score_thresh=0.5):
     '''saved_model must be saved with input_type = "image_tensor"
     '''
-    saved_model_path = exported_model_path+"saved_model/"
+    saved_model_path = exported_model_dir+"saved_model/"
     predict_fn = tf.contrib.predictor.from_saved_model(saved_model_path)
     random.shuffle(path_list)
     path_list = path_list[:num_infer]
@@ -45,11 +45,11 @@ def infer(path_list, exported_model_path, label_map_path, results_dir, num_infer
                 detection_masks_reframed = tf.cast(detection_masks_reframed > 0.5, tf.uint8)          
                 mask_refr = sess.run(detection_masks_reframed)
                 output_dict['detection_masks_reframed'] = mask_refr
-            
+            masks = output_dict.get('detection_masks_reframed', None)
             boxes = output_dict["detection_boxes"]
             classes = output_dict["detection_classes"]
             scores = output_dict["detection_scores"]
-            masks = output_dict.get('detection_masks_reframed', None)
+            
 
             b = []
             c = []
@@ -62,13 +62,16 @@ def infer(path_list, exported_model_path, label_map_path, results_dir, num_infer
                 b.append(boxes[k])
                 c.append(classe)
                 s.append(scores[k])
-                m.append(masks[k])
+                if masks is not None:
+                    m.append(masks[k])
                 k+=1
             boxes = np.array(b)
             classes = np.array(c)
             # print(scores)
             scores = np.array(s)
-            masks = np.array(m)
+            if masks is not None:
+                masks = np.array(m)
+
 
             vis_util.visualize_boxes_and_labels_on_image_array(img, 
                                                 boxes,
@@ -79,6 +82,7 @@ def infer(path_list, exported_model_path, label_map_path, results_dir, num_infer
                                                 use_normalized_coordinates=True,
                                                 line_thickness=7,
                                                 min_score_thresh=min_score_thresh)
+
             img_name = img_path.split("/")[-1]
             Image.fromarray(img).save(results_dir+img_name)
 
