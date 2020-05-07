@@ -69,10 +69,10 @@ def create_record_files(label_path, record_dir, tfExample_generator, annotation_
         output_path = record_dir+ensemble+".record"
         writer = tf.python_io.TFRecordWriter(output_path)
         for variables in tfExample_generator(label_map, ensemble=ensemble, annotation_type=annotation_type):
-            (width, height, xmins, xmaxs, ymins, ymaxs, filename,
-                    encoded_jpg, image_format, classes_text, classes, masks) = variables
+            if annotation_type=="polygon":
+                (width, height, xmins, xmaxs, ymins, ymaxs, filename,
+                     encoded_jpg, image_format, classes_text, classes, masks) = variables
             
-            if len(masks)!=0:
                 tf_example = tf.train.Example(features=tf.train.Features(feature={
                     'image/height': dataset_util.int64_feature(height),
                     'image/width': dataset_util.int64_feature(width),
@@ -87,8 +87,12 @@ def create_record_files(label_path, record_dir, tfExample_generator, annotation_
                     'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
                     'image/object/class/label': dataset_util.int64_list_feature(classes),
                     'image/object/mask': dataset_util.bytes_list_feature(masks)
-                }))
-            else:
+                }))               
+                
+            elif annotation_type=="rectangle":
+                (width, height, xmins, xmaxs, ymins, ymaxs, filename,
+                        encoded_jpg, image_format, classes_text, classes) = variables
+
                 tf_example = tf.train.Example(features=tf.train.Features(feature={
                     'image/height': dataset_util.int64_feature(height),
                     'image/width': dataset_util.int64_feature(width),
