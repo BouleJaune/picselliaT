@@ -50,7 +50,7 @@ def create_label_map(json_file_path):
         
 
 
-def create_record_files(label_path, record_dir, tfExample_generator):
+def create_record_files(label_path, record_dir, tfExample_generator, label_type):
     '''
         Ne gère que des fichiers d'annotations entièrement avec geometry = polygon et sans 'vide'!!
         
@@ -68,25 +68,41 @@ def create_record_files(label_path, record_dir, tfExample_generator):
     for ensemble in ensembles:
         output_path = record_dir+ensemble+".record"
         writer = tf.python_io.TFRecordWriter(output_path)
-        for variables in tfExample_generator(label_map, ensemble=ensemble):
+        for variables in tfExample_generator(label_map, ensemble=ensemble, label_type=label_type):
             (width, height, xmins, xmaxs, ymins, ymaxs, filename,
                     encoded_jpg, image_format, classes_text, classes, masks) = variables
-
-            tf_example = tf.train.Example(features=tf.train.Features(feature={
-                'image/height': dataset_util.int64_feature(height),
-                'image/width': dataset_util.int64_feature(width),
-                'image/filename': dataset_util.bytes_feature(filename),
-                'image/source_id': dataset_util.bytes_feature(filename),
-                'image/encoded': dataset_util.bytes_feature(encoded_jpg),
-                'image/format': dataset_util.bytes_feature(image_format),
-                'image/object/bbox/xmin': dataset_util.float_list_feature(xmins),
-                'image/object/bbox/xmax': dataset_util.float_list_feature(xmaxs),
-                'image/object/bbox/ymin': dataset_util.float_list_feature(ymins),
-                'image/object/bbox/ymax': dataset_util.float_list_feature(ymaxs),
-                'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
-                'image/object/class/label': dataset_util.int64_list_feature(classes),
-                'image/object/mask': dataset_util.bytes_list_feature(masks)
-            }))
+            
+            if len(masks)!=0:
+                tf_example = tf.train.Example(features=tf.train.Features(feature={
+                    'image/height': dataset_util.int64_feature(height),
+                    'image/width': dataset_util.int64_feature(width),
+                    'image/filename': dataset_util.bytes_feature(filename),
+                    'image/source_id': dataset_util.bytes_feature(filename),
+                    'image/encoded': dataset_util.bytes_feature(encoded_jpg),
+                    'image/format': dataset_util.bytes_feature(image_format),
+                    'image/object/bbox/xmin': dataset_util.float_list_feature(xmins),
+                    'image/object/bbox/xmax': dataset_util.float_list_feature(xmaxs),
+                    'image/object/bbox/ymin': dataset_util.float_list_feature(ymins),
+                    'image/object/bbox/ymax': dataset_util.float_list_feature(ymaxs),
+                    'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
+                    'image/object/class/label': dataset_util.int64_list_feature(classes),
+                    'image/object/mask': dataset_util.bytes_list_feature(masks)
+                }))
+            else:
+                tf_example = tf.train.Example(features=tf.train.Features(feature={
+                    'image/height': dataset_util.int64_feature(height),
+                    'image/width': dataset_util.int64_feature(width),
+                    'image/filename': dataset_util.bytes_feature(filename),
+                    'image/source_id': dataset_util.bytes_feature(filename),
+                    'image/encoded': dataset_util.bytes_feature(encoded_jpg),
+                    'image/format': dataset_util.bytes_feature(image_format),
+                    'image/object/bbox/xmin': dataset_util.float_list_feature(xmins),
+                    'image/object/bbox/xmax': dataset_util.float_list_feature(xmaxs),
+                    'image/object/bbox/ymin': dataset_util.float_list_feature(ymins),
+                    'image/object/bbox/ymax': dataset_util.float_list_feature(ymaxs),
+                    'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
+                    'image/object/class/label': dataset_util.int64_list_feature(classes)
+                    }))
             writer.write(tf_example.SerializeToString())
     
         writer.close()
@@ -388,7 +404,7 @@ def legacy_train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_rep
 
 def tfevents_to_dict(path):
     event = [filename for filename in os.listdir(path) if filename.startswith("events.out")][0]
-    event_acc = EventAccumulator(path+event).Reload()
+    event_acc = EventAcumulator(path+event).Reload()
     logs = dict()
     for scalar_key in event_acc.scalars.Keys():
         scalar_dict = {"wall_time": [], "step": [], "value": []}
