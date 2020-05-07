@@ -50,7 +50,7 @@ def create_label_map(json_file_path):
         
 
 
-def create_record_files(label_path, record_dir, tfExample_generator, annotations_type):
+def create_record_files(label_path, record_dir, tfExample_generator, annotation_type):
     '''
         Ne gère que des fichiers d'annotations entièrement avec geometry = polygon et sans 'vide'!!
         
@@ -68,7 +68,7 @@ def create_record_files(label_path, record_dir, tfExample_generator, annotations
     for ensemble in ensembles:
         output_path = record_dir+ensemble+".record"
         writer = tf.python_io.TFRecordWriter(output_path)
-        for variables in tfExample_generator(label_map, ensemble=ensemble, annotations_type=annotations_type):
+        for variables in tfExample_generator(label_map, ensemble=ensemble, annotation_type=annotation_type):
             (width, height, xmins, xmaxs, ymins, ymaxs, filename,
                     encoded_jpg, image_format, classes_text, classes, masks) = variables
             
