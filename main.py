@@ -11,7 +11,6 @@ from PIL import Image, ImageDraw
 import os
 import numpy as np 
 import cv2
-from picsellia import Client
 
 import functools
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
@@ -408,7 +407,7 @@ def legacy_train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_rep
 
 def tfevents_to_dict(path):
     event = [filename for filename in os.listdir(path) if filename.startswith("events.out")][0]
-    event_acc = EventAcumulator(path+event).Reload()
+    event_acc = EventAccumulator(path+event).Reload()
     logs = dict()
     for scalar_key in event_acc.scalars.Keys():
         scalar_dict = {"wall_time": [], "step": [], "value": []}
