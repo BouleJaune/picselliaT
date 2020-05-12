@@ -106,6 +106,20 @@ def create_record_files(label_path, record_dir, tfExample_generator, annotation_
                     'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
                     'image/object/class/label': dataset_util.int64_list_feature(classes)
                     }))
+            elif annotation_type=="classification":
+                (width, height, filename, encoded_jpg, image_format, 
+                    classes_text, classes) = variables
+
+                tf_example = tf.train.Example(features=tf.train.Features(feature={
+                    'image/height': dataset_util.int64_feature(height),
+                    'image/width': dataset_util.int64_feature(width),
+                    'image/filename': dataset_util.bytes_feature(filename),
+                    'image/source_id': dataset_util.bytes_feature(filename),
+                    'image/encoded': dataset_util.bytes_feature(encoded_jpg),
+                    'image/format': dataset_util.bytes_feature(image_format),
+                    'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
+                    'image/object/class/label': dataset_util.int64_list_feature(classes)
+                    }))                    
             writer.write(tf_example.SerializeToString())
     
         writer.close()
@@ -130,6 +144,14 @@ def update_num_classes(model_config, label_map):
         model_config.ssd.num_classes = n_classes
     else:
         raise ValueError("Expected the model to be one of 'faster_rcnn' or 'ssd'.")
+
+def classi_or_detect(config_dict, model_type):
+    ''' 
+        Args :
+        config_dict: config_dict
+        model_type: "detection" or "classification"  
+    '''
+    config_dict["train_config"].fine_tune_checkpoint_type = model_type
 
 
 #ok
@@ -161,7 +183,7 @@ def edit_masks(configs, mask_type="PNG_MASKS"):
     else:
         raise ValueError("Wrong Mask type provided")
 #ok
-def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, training_id=0, masks=None, batch_size=None, learning_rate=None):
+def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, model_type="detection", training_id=0, masks=None, batch_size=None, learning_rate=None):
     '''
         Suppose que la label_map et les .record sont générés
         Potentiellement mettre en argument la label_map plutôt que la reload
@@ -171,8 +193,6 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
             batch_size: batch_size, si non précisé, pas de modifications et garde la valeur de base
             learning_rate: learning_rate, si non précisé, pas de modifications et garde la valeur de base
 
-        Raises:
-            Exception si le model_path n'est pas fourni
     '''
     configs = config_util.get_configs_from_pipeline_file(model_selected+'pipeline.config')
     label_map = label_map_util.load_labelmap(label_map_path)
@@ -213,9 +233,12 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     if masks is not None:
         edit_masks(configs, mask_type=masks)
 
+    classi_or_detect(configs, model_type)
     update_num_classes(configs["model"], label_map)
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
     config_util.save_pipeline_config(config_proto, directory=config_output_dir)
+
+
 
 
 def train(model_dir=None, pipeline_config_path=None, num_train_steps=None, eval_training_data=False, 
