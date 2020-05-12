@@ -183,7 +183,8 @@ def edit_masks(configs, mask_type="PNG_MASKS"):
     else:
         raise ValueError("Wrong Mask type provided")
 #ok
-def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, model_type="detection", training_id=0, masks=None, batch_size=None, learning_rate=None):
+def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, 
+        annotation_type="polygon", training_id=0, masks=None, batch_size=None, learning_rate=None):
     '''
         Suppose que la label_map et les .record sont générés
         Potentiellement mettre en argument la label_map plutôt que la reload
@@ -233,7 +234,8 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     if masks is not None:
         edit_masks(configs, mask_type=masks)
 
-    classi_or_detect(configs, model_type)
+    if annotation_type=="classification":
+        classi_or_detect(configs, annotation_type)
     update_num_classes(configs["model"], label_map)
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
     config_util.save_pipeline_config(config_proto, directory=config_output_dir)
