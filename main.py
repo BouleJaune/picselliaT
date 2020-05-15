@@ -48,7 +48,6 @@ def create_label_map(json_file_path):
     print("label_map.pbtxt crée")
         
 
-
 def create_record_files(label_path, record_dir, tfExample_generator, annotation_type):
     '''
         Ne gère que des fichiers d'annotations entièrement avec geometry = polygon et sans 'vide'!!
@@ -62,12 +61,12 @@ def create_record_files(label_path, record_dir, tfExample_generator, annotation_
     '''
     label_map = label_map_util.load_labelmap(label_path)
     label_map = label_map_util.get_label_map_dict(label_map) 
-    ensembles = ["train", "eval"]
+    datasets = ["train", "eval"]
     
-    for ensemble in ensembles:
-        output_path = record_dir+ensemble+".record"
+    for dataset in datasets:
+        output_path = record_dir+dataset+".record"
         writer = tf.python_io.TFRecordWriter(output_path)
-        for variables in tfExample_generator(label_map, ensemble=ensemble, annotation_type=annotation_type):
+        for variables in tfExample_generator(label_map, ensemble=dataset, annotation_type=annotation_type):
             if annotation_type=="polygon":
                 (width, height, xmins, xmaxs, ymins, ymaxs, filename,
                      encoded_jpg, image_format, classes_text, classes, masks) = variables
@@ -106,26 +105,11 @@ def create_record_files(label_path, record_dir, tfExample_generator, annotation_
                     'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
                     'image/object/class/label': dataset_util.int64_list_feature(classes)
                     }))
-            elif annotation_type=="classification":
-                (width, height, filename, encoded_jpg, image_format, 
-                    classes_text, classes) = variables
 
-                tf_example = tf.train.Example(features=tf.train.Features(feature={
-                    'image/height': dataset_util.int64_feature(height),
-                    'image/width': dataset_util.int64_feature(width),
-                    'image/filename': dataset_util.bytes_feature(filename),
-                    'image/source_id': dataset_util.bytes_feature(filename),
-                    'image/encoded': dataset_util.bytes_feature(encoded_jpg),
-                    'image/format': dataset_util.bytes_feature(image_format),
-                    'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
-                    'image/object/class/label': dataset_util.int64_list_feature(classes)
-                    }))                    
-            writer.write(tf_example.SerializeToString())
-    
+            writer.write(tf_example.SerializeToString())    
         writer.close()
         print('Successfully created the TFRecords: {}'.format(output_path))
 
-#ok 
 def update_num_classes(model_config, label_map):
     ''' Mets à jour num_classes dans la config protobuf par rapport au nombre de label de la label_map
 
@@ -145,16 +129,7 @@ def update_num_classes(model_config, label_map):
     else:
         raise ValueError("Expected the model to be one of 'faster_rcnn' or 'ssd'.")
 
-def classi_or_detect(config_dict, model_type):
-    ''' 
-        Args :
-        config_dict: config_dict
-        model_type: "detection" or "classification"  
-    '''
-    config_dict["train_config"].fine_tune_checkpoint_type = model_type
 
-
-#ok
 def update_different_paths(config_dict, ckpt_path, label_map_path, train_record_path, eval_record_path):
     '''
         Set les bons paths dans le fichier de configuration protobuf.
@@ -182,9 +157,9 @@ def edit_masks(configs, mask_type="PNG_MASKS"):
         configs["eval_input_config"].mask_type = 1
     else:
         raise ValueError("Wrong Mask type provided")
-#ok
+
 def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, 
-        annotation_type="polygon", training_id=0, masks=None, batch_size=None, learning_rate=None):
+        annotation_type="polygon", batch_size=None, learning_rate=None):
     '''
         Suppose que la label_map et les .record sont générés
         Potentiellement mettre en argument la label_map plutôt que la reload
@@ -195,24 +170,25 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
             learning_rate: learning_rate, si non précisé, pas de modifications et garde la valeur de base
 
     '''
+
+
+    file_list = os.listdir(model_selected)
+    for p in file_list:
+        if "index" in p:
+            if "-" in p:
+                ckpt_id = max([int(p.split('-')[1].split('.')[0])
+                ckpt_path = model_selected+"model.ckpt-{}".format(str(ckpt_id))
+            else:
+                ckpt_path = model_selected+"model.ckpt"  
+
     configs = config_util.get_configs_from_pipeline_file(model_selected+'pipeline.config')
     label_map = label_map_util.load_labelmap(label_map_path)
 
-    # configs["eval_config"].metrics_set="coco_detection_metrics"
-    if training_id==0:
-        config_util._update_train_steps(configs, num_steps)
-        update_different_paths(configs, ckpt_path=model_selected+"model.ckpt", 
-                                label_map_path=label_map_path, 
-                                train_record_path=record_dir+"train.record", 
-                                eval_record_path=record_dir+"eval.record")
-
-    else:
-        prev_num_steps = configs["train_config"].num_steps
-        config_util._update_train_steps(configs, num_steps)
-        update_different_paths(configs, ckpt_path=model_selected+"model.ckpt-"+str(prev_num_steps), 
-                                label_map_path=label_map_path, 
-                                train_record_path=record_dir+"train.record", 
-                                eval_record_path=record_dir+"eval.record")
+    config_util._update_train_steps(configs, num_steps)
+    update_different_paths(configs, ckpt_path=ckpt_path, 
+                            label_map_path=label_map_path, 
+                            train_record_path=record_dir+"train.record", 
+                            eval_record_path=record_dir+"eval.record")
 
     if learning_rate is not None:
         ''' Update learning rate
@@ -231,106 +207,15 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     if batch_size is not None:
         config_util._update_batch_size(configs, batch_size)
 
-    if masks is not None:
-        edit_masks(configs, mask_type=masks)
+    if annotation_type=="polygon":
+        edit_masks(configs, mask_type="PNG_MASKS")
 
-    if annotation_type=="classification":
-        classi_or_detect(configs, annotation_type)
     update_num_classes(configs["model"], label_map)
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
     config_util.save_pipeline_config(config_proto, directory=config_output_dir)
 
 
-
-
-def train(model_dir=None, pipeline_config_path=None, num_train_steps=None, eval_training_data=False, 
-            sample_1_of_n_eval_examples=1, sample_1_of_n_eval_on_train_examples=5, hparams_overrides=None,
-            checkpoint_dir=None, run_once=False):
-
-    if model_dir==None or pipeline_config_path==None:
-        raise Exception("Please model_dir and pipeline config path")
-    config = tf.estimator.RunConfig(model_dir=model_dir)
-
-    train_and_eval_dict = model_lib.create_estimator_and_inputs(
-        run_config=config,
-        hparams= model_hparams.create_hparams(hparams_overrides),
-        pipeline_config_path=pipeline_config_path,
-        train_steps=num_train_steps,
-        sample_1_of_n_eval_examples=sample_1_of_n_eval_examples,
-        sample_1_of_n_eval_on_train_examples=(sample_1_of_n_eval_on_train_examples))
-    estimator = train_and_eval_dict['estimator']
-    train_input_fn = train_and_eval_dict['train_input_fn']
-    eval_input_fns = train_and_eval_dict['eval_input_fns']
-    eval_on_train_input_fn = train_and_eval_dict['eval_on_train_input_fn']
-    predict_input_fn = train_and_eval_dict['predict_input_fn']
-    train_steps = train_and_eval_dict['train_steps']
-
-    if checkpoint_dir is not None:
-        if eval_training_data is not None:
-            name = 'training_data'
-            input_fn = eval_on_train_input_fn
-        else:
-            name = 'validation_data'
-            # The first eval input will be evaluated.
-            input_fn = eval_input_fns[0]
-        if run_once:
-            estimator.evaluate(input_fn,
-                            steps=None,
-                            checkpoint_path=tf.train.latest_checkpoint(checkpoint_dir))
-        else:
-            model_lib.continuous_eval(estimator, checkpoint_dir, input_fn,
-                                    train_steps, name)
-    else:
-        train_spec, eval_specs = model_lib.create_train_and_eval_specs(
-            train_input_fn,
-            eval_input_fns,
-            eval_on_train_input_fn,
-            predict_input_fn,
-            train_steps,
-            eval_on_train_data=False)
-
-        # Currently only a single Eval Spec is allowed.
-        tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0])
-
-        sample_1_of_n_eval_examples=sample_1_of_n_eval_examples,
-        sample_1_of_n_eval_on_train_examples=(sample_1_of_n_eval_on_train_examples)
-    estimator = train_and_eval_dict['estimator']
-    train_input_fn = train_and_eval_dict['train_input_fn']
-    eval_input_fns = train_and_eval_dict['eval_input_fns']
-    eval_on_train_input_fn = train_and_eval_dict['eval_on_train_input_fn']
-    predict_input_fn = train_and_eval_dict['predict_input_fn']
-    train_steps = train_and_eval_dict['train_steps']
-
-
-    if checkpoint_dir is not None:
-        if eval_training_data is not None:
-            name = 'training_data'
-            input_fn = eval_on_train_input_fn
-        else:
-            name = 'validation_data'
-            # The first eval input will be evaluated.
-            input_fn = eval_input_fns[0]
-        if run_once:
-            estimator.evaluate(input_fn,
-                            steps=None,
-                            checkpoint_path=tf.train.latest_checkpoint(checkpoint_dir))
-        else:
-            model_lib.continuous_eval(estimator, checkpoint_dir, input_fn,
-                                    train_steps, name)
-    else:
-        train_spec, eval_specs = model_lib.create_train_and_eval_specs(
-            train_input_fn,
-            eval_input_fns,
-            eval_on_train_input_fn,
-            predict_input_fn,
-            train_steps,
-            eval_on_train_data=False)
-
-        # Currently only a single Eval Spec is allowed.
-        tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0])
-
-
-def legacy_train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1, ps_tasks=0, 
+def train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1, ps_tasks=0, 
                     ckpt_dir='', conf_dir='', train_config_path='', input_config_path='', model_config_path=''):   
     train_dir = ckpt_dir
     pipeline_config_path = conf_dir+"pipeline.config"
@@ -430,6 +315,8 @@ def legacy_train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_rep
         graph_hook_fn=graph_rewriter_fn)
 
 
+
+
 def tfevents_to_dict(path):
     event = [filename for filename in os.listdir(path) if filename.startswith("events.out")][0]
     event_acc = EventAccumulator(path+event).Reload()
@@ -442,9 +329,6 @@ def tfevents_to_dict(path):
             scalar_dict["value"].append(scalars.value)
         logs[scalar_key] = scalar_dict
     return logs
-
-
-
 
 
 def export_infer_graph(ckpt_dir, exported_model_dir, pipeline_config_path,
