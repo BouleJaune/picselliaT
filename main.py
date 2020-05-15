@@ -176,7 +176,7 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     for p in file_list:
         if "index" in p:
             if "-" in p:
-                ckpt_id = max([int(p.split('-')[1].split('.')[0])
+                ckpt_id = max([int(p.split('-')[1].split('.')[0]))
                 ckpt_path = model_selected+"model.ckpt-{}".format(str(ckpt_id))
             else:
                 ckpt_path = model_selected+"model.ckpt"  
