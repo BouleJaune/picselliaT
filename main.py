@@ -173,13 +173,16 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
 
 
     file_list = os.listdir(model_selected)
+    ckpt_ids = []
     for p in file_list:
         if "index" in p:
             if "-" in p:
-                ckpt_id = max([int(p.split('-')[1].split('.')[0]))
-                ckpt_path = model_selected+"model.ckpt-{}".format(str(ckpt_id))
-            else:
-                ckpt_path = model_selected+"model.ckpt"  
+                ckpt_ids.append(int(p.split('-')[1].split('.')[0]))
+    if len(ckpt_ids)>0:
+        ckpt_path = model_selected+"model.ckpt-{}".format(str(max(ckpt_ids)))
+    
+    else:
+        ckpt_path = model_selected+"model.ckpt"  
 
     configs = config_util.get_configs_from_pipeline_file(model_selected+'pipeline.config')
     label_map = label_map_util.load_labelmap(label_map_path)
