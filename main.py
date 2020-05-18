@@ -18,6 +18,7 @@ from object_detection.builders import dataset_builder
 from object_detection.builders import graph_rewriter_builder
 from object_detection.builders import model_builder
 from object_detection.legacy import trainer
+from object_detection.legacy import evaluator
 
 from google.protobuf import text_format
 from object_detection import exporter
@@ -347,7 +348,44 @@ def train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1
         train_dir,
         graph_hook_fn=graph_rewriter_fn)
 
+def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run_once=True):
+    tf.gfile.MakeDirs(eval_dir)
 
+    configs = config_util.get_configs_from_pipeline_file(config_dir)
+    tf.gfile.Copy(config_dir,os.path.join(eval_dir, 'pipeline.config'), overwrite=True)
+    model_config = configs['model']
+    eval_config = configs['eval_config']
+    input_config = configs['eval_input_config']
+    if eval_training_data:
+        input_config = configs['train_input_config']
+
+    model_fn = functools.partial(model_builder.build, model_config=model_config, is_training=False)
+
+    def get_next(config):
+        return dataset_builder.make_initializable_iterator(dataset_builder.build(config)).get_next()
+
+    create_input_dict_fn = functools.partial(get_next, input_config)
+
+    categories = label_map_util.create_categories_from_labelmap(
+      input_config.label_map_path)
+
+    if run_once:
+        eval_config.max_evals = 1
+
+    graph_rewriter_fn = None
+    if 'graph_rewriter_config' in configs:
+        graph_rewriter_fn = graph_rewriter_builder.build(
+            configs['graph_rewriter_config'], is_training=False)
+
+    metrics = evaluator.evaluate(
+          create_input_dict_fn,
+          model_fn,
+          eval_config,
+          categories,
+          checkpoint_dir,
+          eval_dir,
+          graph_hook_fn=graph_rewriter_fn)
+    return metrics
 
 
 def tfevents_to_dict(path):
