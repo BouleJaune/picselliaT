@@ -67,7 +67,7 @@ def create_record_files(label_path, record_dir, tfExample_generator, annotation_
     datasets = ["train", "eval"]
     
     for dataset in datasets:
-        output_path = record_dir+dataset+".record"
+        output_path = os.path.join(record_dir, dataset+".record")
         writer = tf.python_io.TFRecordWriter(output_path)
         for variables in tfExample_generator(label_map, ensemble=dataset, annotation_type=annotation_type):
             if annotation_type=="polygon":
@@ -209,19 +209,19 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
             if "-" in p:
                 ckpt_ids.append(int(p.split('-')[1].split('.')[0]))
     if len(ckpt_ids)>0:
-        ckpt_path = model_selected+"model.ckpt-{}".format(str(max(ckpt_ids)))
+        ckpt_path = os.path.join(model_selected,"model.ckpt-{}".format(str(max(ckpt_ids))))
     
     else:
-        ckpt_path = model_selected+"model.ckpt"  
+        ckpt_path = os.path.join(model_selected, "model.ckpt")
 
-    configs = config_util.get_configs_from_pipeline_file(model_selected+'pipeline.config')
+    configs = config_util.get_configs_from_pipeline_file(os.path.join(model_selected,'pipeline.config'))
     label_map = label_map_util.load_labelmap(label_map_path)
 
     config_util._update_train_steps(configs, num_steps)
     update_different_paths(configs, ckpt_path=ckpt_path, 
                             label_map_path=label_map_path, 
-                            train_record_path=record_dir+"train.record", 
-                            eval_record_path=record_dir+"eval.record")
+                            train_record_path=os.path.join(record_dir, "train.record"), 
+                            eval_record_path=os.path.join(record_dir,"eval.record"))
 
     if learning_rate is not None:
         ''' Update learning rate
@@ -252,7 +252,7 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
 def train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1, ps_tasks=0, 
                     ckpt_dir='', conf_dir='', train_config_path='', input_config_path='', model_config_path=''):   
     train_dir = ckpt_dir
-    pipeline_config_path = conf_dir+"pipeline.config"
+    pipeline_config_path = os.path.join(conf_dir,"pipeline.config")
     configs = config_util.get_configs_from_pipeline_file(pipeline_config_path)
 
     tf.logging.set_verbosity(tf.logging.INFO)
@@ -390,7 +390,7 @@ def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run
 
 def tfevents_to_dict(path):
     event = [filename for filename in os.listdir(path) if filename.startswith("events.out")][0]
-    event_acc = EventAccumulator(path+event).Reload()
+    event_acc = EventAccumulator(os.path.join(path,event)).Reload()
     logs = dict()
     for scalar_key in event_acc.scalars.Keys():
         scalar_dict = {"wall_time": [], "step": [], "value": []}
@@ -404,12 +404,12 @@ def tfevents_to_dict(path):
 
 def export_infer_graph(ckpt_dir, exported_model_dir, pipeline_config_path,
                         write_inference_graph=False, input_type="image_tensor", input_shape=None):
-    pipeline_config_path = pipeline_config_path+"pipeline.config"
+    pipeline_config_path = os.path.join(pipeline_config_path,"pipeline.config")
     config_dict = config_util.get_configs_from_pipeline_file(pipeline_config_path)
     ckpt_number = str(config_dict["train_config"].num_steps)
     pipeline_config = config_util.create_pipeline_proto_from_configs(config_dict)
 
-    trained_checkpoint_prefix = ckpt_dir+'model.ckpt-'+ckpt_number
+    trained_checkpoint_prefix = os.path.join(ckpt_dir,'model.ckpt-'+ckpt_number)
     exporter.export_inference_graph(
         input_type, pipeline_config, trained_checkpoint_prefix,
         exported_model_dir, input_shape=input_shape,
