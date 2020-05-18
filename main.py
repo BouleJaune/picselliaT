@@ -154,11 +154,11 @@ def edit_eval_config(config_dict, metrics_path, annotation_type, eval_number):
         raise ValueError("Wrong annotation type provided")
     
     if isinstance(eval_number, int):
-        config_dict["eval_config"].num_examples = eval_number
+        eval_config.num_examples = eval_number
     else: 
         print("eval_number has type ", type(eval_number), " and not int")
 
-    config_dict.export_path = metrics_path
+    eval_config.export_path = metrics_path
 
 
 def update_different_paths(config_dict, ckpt_path, label_map_path, train_record_path, eval_record_path):
