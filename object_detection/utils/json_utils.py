@@ -31,8 +31,7 @@ def Dump(obj, fid, float_digits=-1, **params):
         float_digits: The number of digits of precision when writing floats out.
         **params: Additional parameters to pass to json.dumps.
     """
-    try:
-        json.dump(obj, fid, **params)
+    json.dump(obj, fid, **params)
 
 
 def Dumps(obj, float_digits=-1, **params):
@@ -47,8 +46,7 @@ def Dumps(obj, float_digits=-1, **params):
         Returns:
         output: JSON string representation of obj.
     """
-    try:
-        output = json.dumps(obj, **params)
+    output = json.dumps(obj, **params)
 
 
     return output
