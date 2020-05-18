@@ -188,7 +188,7 @@ def edit_masks(configs, mask_type="PNG_MASKS"):
     else:
         raise ValueError("Wrong Mask type provided")
 
-def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, 
+def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, metrics_path, eval_number, 
         annotation_type="polygon", batch_size=None, learning_rate=None):
     '''
         Suppose que la label_map et les .record sont générés
@@ -243,7 +243,7 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     if annotation_type=="polygon":
         edit_masks(configs, mask_type="PNG_MASKS")
 
-    edit_eval_config(config_dict, annotation_type)
+    edit_eval_config(config_dict, metrics_path, annotation_type, eval_number)
     update_num_classes(configs["model"], label_map)
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
     config_util.save_pipeline_config(config_proto, directory=config_output_dir)
