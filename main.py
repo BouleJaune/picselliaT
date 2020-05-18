@@ -352,8 +352,8 @@ def train(master='', save_summaries_secs=30, task=0, num_clones=1, clone_on_cpu=
 def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run_once=True):
     tf.gfile.MakeDirs(eval_dir)
 
-    configs = config_util.get_configs_from_pipeline_file(config_dir)
-    tf.gfile.Copy(config_dir,os.path.join(eval_dir, 'pipeline.config'), overwrite=True)
+    configs = config_util.get_configs_from_pipeline_file(os.path.join(config_dir, "pipeline.config"))
+    tf.gfile.Copy(config_dir, os.path.join(eval_dir, 'pipeline.config'), overwrite=True)
     model_config = configs['model']
     eval_config = configs['eval_config']
     input_config = configs['eval_input_config']
@@ -405,6 +405,7 @@ def tfevents_to_dict(path):
 
 def export_infer_graph(ckpt_dir, exported_model_dir, pipeline_config_path,
                         write_inference_graph=False, input_type="image_tensor", input_shape=None):
+    exported_model = os.path.join(exported_model_dir,'saved_model/saved_model.pb')
     pipeline_config_path = os.path.join(pipeline_config_path,"pipeline.config")
     config_dict = config_util.get_configs_from_pipeline_file(pipeline_config_path)
     ckpt_number = str(config_dict["train_config"].num_steps)
@@ -413,6 +414,6 @@ def export_infer_graph(ckpt_dir, exported_model_dir, pipeline_config_path,
     trained_checkpoint_prefix = os.path.join(ckpt_dir,'model.ckpt-'+ckpt_number)
     exporter.export_inference_graph(
         input_type, pipeline_config, trained_checkpoint_prefix,
-        exported_model_dir, input_shape=input_shape,
+        exported_model, input_shape=input_shape,
         write_inference_graph=write_inference_graph)
 
