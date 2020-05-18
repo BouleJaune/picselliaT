@@ -22,54 +22,54 @@ from json import encoder
 
 
 def Dump(obj, fid, float_digits=-1, **params):
-  """Wrapper of json.dump that allows specifying the float precision used.
+    """Wrapper of json.dump that allows specifying the float precision used.
 
-  Args:
+    Args:
     obj: The object to dump.
     fid: The file id to write to.
     float_digits: The number of digits of precision when writing floats out.
     **params: Additional parameters to pass to json.dumps.
-  """
-  try:
-    json.dump(obj, fid, **params)
+    """
+    try:
+        json.dump(obj, fid, **params)
 
 
 def Dumps(obj, float_digits=-1, **params):
-  """Wrapper of json.dumps that allows specifying the float precision used.
+    """Wrapper of json.dumps that allows specifying the float precision used.
 
-  Args:
+    Args:
     obj: The object to dump.
     float_digits: The number of digits of precision when writing floats out.
     **params: Additional parameters to pass to json.dumps.
 
-  Returns:
+    Returns:
     output: JSON string representation of obj.
-  """
-  try:
-    output = json.dumps(obj, **params)
+    """
+    try:
+        output = json.dumps(obj, **params)
 
 
-  return output
+    return output
 
 
 def PrettyParams(**params):
-  """Returns parameters for use with Dump and Dumps to output pretty json.
+    """Returns parameters for use with Dump and Dumps to output pretty json.
 
-  Example usage:
+    Example usage:
     ```json_str = json_utils.Dumps(obj, **json_utils.PrettyParams())```
     ```json_str = json_utils.Dumps(
-                      obj, **json_utils.PrettyParams(allow_nans=False))```
+                        obj, **json_utils.PrettyParams(allow_nans=False))```
 
-  Args:
+    Args:
     **params: Additional params to pass to json.dump or json.dumps.
 
-  Returns:
+    Returns:
     params: Parameters that are compatible with json_utils.Dump and
-      json_utils.Dumps.
-  """
-  params['float_digits'] = 4
-  params['sort_keys'] = True
-  params['indent'] = 2
-  params['separators'] = (',', ': ')
-  return params
+        json_utils.Dumps.
+    """
+    params['float_digits'] = 4
+    params['sort_keys'] = True
+    params['indent'] = 2
+    params['separators'] = (',', ': ')
+    return params
 
