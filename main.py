@@ -149,9 +149,9 @@ def edit_eval_config(config_dict, annotation_type, eval_number):
     eval_config = config_dict["eval_config"]
     eval_config.num_visualizations = 0
     if annotation_type=="rectangle":
-        eval_config.metrics_set[0] = "coco_detection_metrics"
+        eval_config.metrics_set = "coco_detection_metrics"
     elif annotation_type=="polygon":
-        eval_config.metrics_set[0] = "coco_mask_metrics"
+        eval_config.metrics_set = "coco_mask_metrics"
     else:
         raise ValueError("Wrong annotation type provided")
     if isinstance(eval_number, int):
