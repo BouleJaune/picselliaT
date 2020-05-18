@@ -22,28 +22,30 @@ from json import encoder
 
 
 def Dump(obj, fid, float_digits=-1, **params):
-    """Wrapper of json.dump that allows specifying the float precision used.
+    """
+        Wrapper of json.dump that allows specifying the float precision used.
 
-    Args:
-    obj: The object to dump.
-    fid: The file id to write to.
-    float_digits: The number of digits of precision when writing floats out.
-    **params: Additional parameters to pass to json.dumps.
+        Args:
+        obj: The object to dump.
+        fid: The file id to write to.
+        float_digits: The number of digits of precision when writing floats out.
+        **params: Additional parameters to pass to json.dumps.
     """
     try:
         json.dump(obj, fid, **params)
 
 
 def Dumps(obj, float_digits=-1, **params):
-    """Wrapper of json.dumps that allows specifying the float precision used.
+    """
+        Wrapper of json.dumps that allows specifying the float precision used.
 
-    Args:
-    obj: The object to dump.
-    float_digits: The number of digits of precision when writing floats out.
-    **params: Additional parameters to pass to json.dumps.
+        Args:
+        obj: The object to dump.
+        float_digits: The number of digits of precision when writing floats out.
+        **params: Additional parameters to pass to json.dumps.
 
-    Returns:
-    output: JSON string representation of obj.
+        Returns:
+        output: JSON string representation of obj.
     """
     try:
         output = json.dumps(obj, **params)
