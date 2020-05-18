@@ -83,7 +83,6 @@ def write_metrics(metrics, global_step, summary_dir):
     summary = tf.Summary(value=[
         tf.Summary.Value(tag=key, simple_value=metrics[key]),
     ])
-    print(summary)
     summary_writer.add_summary(summary, global_step)
     tf.logging.info('%s: %f', key, metrics[key])
   tf.logging.info('Metrics written to tf summary.')
