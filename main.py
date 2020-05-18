@@ -144,7 +144,7 @@ def set_image_resizer(config_dict, resizer, param_dict):
     else:
         raise ValueError("Unknown model type: {}".format(meta_architecture))
     
-def edit_eval_config(config_dict, metrics_path, annotation_type, eval_number):
+def edit_eval_config(config_dict, annotation_type, eval_number):
     eval_config = config_dict["eval_config"]
     if annotation_type=="rectangle":
         eval_config.metrics_set[0] = "coco_detection_metrics"
@@ -157,8 +157,6 @@ def edit_eval_config(config_dict, metrics_path, annotation_type, eval_number):
         eval_config.num_examples = eval_number
     else: 
         print("eval_number has type ", type(eval_number), " and not int")
-
-    eval_config.export_path = metrics_path
 
 
 def update_different_paths(config_dict, ckpt_path, label_map_path, train_record_path, eval_record_path):
@@ -189,7 +187,7 @@ def edit_masks(configs, mask_type="PNG_MASKS"):
     else:
         raise ValueError("Wrong Mask type provided")
 
-def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, metrics_path, eval_number, 
+def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, eval_number, 
         annotation_type="polygon", batch_size=None, learning_rate=None):
     '''
         Suppose que la label_map et les .record sont générés
@@ -244,7 +242,7 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     if annotation_type=="polygon":
         edit_masks(configs, mask_type="PNG_MASKS")
 
-    edit_eval_config(configs, metrics_path, annotation_type, eval_number)
+    edit_eval_config(configs, annotation_type, eval_number)
     update_num_classes(configs, label_map)
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
     config_util.save_pipeline_config(config_proto, directory=config_output_dir)
