@@ -347,10 +347,10 @@ def train(master='', save_summaries_secs=30, task=0, num_clones=1, clone_on_cpu=
         is_chief,
         train_dir,
         graph_hook_fn=graph_rewriter_fn,
-        save_summaries_secs)
+        save_summaries_secs=save_summaries_secs)
 
 def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run_once=True):
-    
+
     tf.reset_default_graph()
     tf.gfile.MakeDirs(eval_dir)
     configs = config_util.get_configs_from_pipeline_file(os.path.join(config_dir, "pipeline.config"))
