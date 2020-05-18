@@ -249,7 +249,7 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     config_util.save_pipeline_config(config_proto, directory=config_output_dir)
 
 
-def train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1, ps_tasks=0, 
+def train(master='', save_summaries_secs=30, task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1, ps_tasks=0, 
                     ckpt_dir='', conf_dir='', train_config_path='', input_config_path='', model_config_path=''):   
     train_dir = ckpt_dir
     pipeline_config_path = os.path.join(conf_dir,"pipeline.config")
@@ -346,7 +346,8 @@ def train(master='', task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1
         worker_job_name,
         is_chief,
         train_dir,
-        graph_hook_fn=graph_rewriter_fn)
+        graph_hook_fn=graph_rewriter_fn,
+        save_summaries_secs)
 
 def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run_once=True):
     tf.gfile.MakeDirs(eval_dir)

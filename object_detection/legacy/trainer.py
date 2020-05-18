@@ -221,7 +221,8 @@ def train(create_tensor_dict_fn,
           worker_job_name,
           is_chief,
           train_dir,
-          graph_hook_fn=None):
+          graph_hook_fn=None,
+          save_summaries_secs):
   """Training function for detection models.
 
   Args:
@@ -412,6 +413,6 @@ def train(create_tensor_dict_fn,
         summary_op=summary_op,
         number_of_steps=(
             train_config.num_steps if train_config.num_steps else None),
-        save_summaries_secs=5, ##120 de base
+        save_summaries_secs=save_summaries_secs, ##120 de base
         sync_optimizer=sync_optimizer,
         saver=saver)
