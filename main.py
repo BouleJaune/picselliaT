@@ -48,6 +48,8 @@ def create_label_map(json_file_path):
     print("label_map.pbtxt crée")
         
 
+
+
 def create_record_files(label_path, record_dir, tfExample_generator, annotation_type):
     '''
         Ne gère que des fichiers d'annotations entièrement avec geometry = polygon et sans 'vide'!!
@@ -128,6 +130,21 @@ def update_num_classes(model_config, label_map):
         model_config.ssd.num_classes = n_classes
     else:
         raise ValueError("Expected the model to be one of 'faster_rcnn' or 'ssd'.")
+
+
+def set_image_resizer(config_dict, resizer, param_dict):
+
+    model_config = config_dict["model"]
+    meta_architecture = model_config.WhichOneof("model")
+    if meta_architecture == "faster_rcnn":
+        image_resizer = model_config.faster_rcnn.image_resizer
+    elif meta_architecture == "ssd":
+        image_resizer = model_config.ssd.image_resizer
+    else:
+        raise ValueError("Unknown model type: {}".format(meta_architecture))
+    
+    
+
 
 
 def update_different_paths(config_dict, ckpt_path, label_map_path, train_record_path, eval_record_path):
