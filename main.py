@@ -112,16 +112,17 @@ def create_record_files(label_path, record_dir, tfExample_generator, annotation_
         writer.close()
         print('Successfully created the TFRecords: {}'.format(output_path))
 
-def update_num_classes(model_config, label_map):
+def update_num_classes(config_dict, label_map):
     ''' Mets à jour num_classes dans la config protobuf par rapport au nombre de label de la label_map
 
         Args :
-        model_config:  model_pb2.DetectionModel. (config["model"])
+        config_dict:  
         label_map: label_map sous forme protobuf
 
         Raises:
             ValueError si le modèle n'est pas reconnu. (backbone)
     '''
+    model_config = config_dict["model"]
     n_classes = len(label_map.item)
     meta_architecture = model_config.WhichOneof("model")
     if meta_architecture == "faster_rcnn":
@@ -243,8 +244,8 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     if annotation_type=="polygon":
         edit_masks(configs, mask_type="PNG_MASKS")
 
-    edit_eval_config(config_dict, metrics_path, annotation_type, eval_number)
-    update_num_classes(configs["model"], label_map)
+    edit_eval_config(configs, metrics_path, annotation_type, eval_number)
+    update_num_classes(configs, label_map)
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
     config_util.save_pipeline_config(config_proto, directory=config_output_dir)
 
