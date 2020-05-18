@@ -86,6 +86,7 @@ def write_metrics(metrics, global_step, summary_dir):
     summary_writer.add_summary(summary, global_step)
     tf.logging.info('%s: %f', key, metrics[key])
   tf.logging.info('Metrics written to tf summary.')
+  summary_writer.close()
 
 
 # TODO(rathodv): Add tests.
