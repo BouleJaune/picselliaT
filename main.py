@@ -354,7 +354,6 @@ def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run
     tf.reset_default_graph()
     tf.gfile.MakeDirs(eval_dir)
     configs = config_util.get_configs_from_pipeline_file(os.path.join(config_dir, "pipeline.config"))
-    tf.gfile.Copy(config_dir, os.path.join(eval_dir, 'pipeline.config'), overwrite=True)
     model_config = configs['model']
     eval_config = configs['eval_config']
     input_config = configs['eval_input_config']
