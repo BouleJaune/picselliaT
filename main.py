@@ -147,8 +147,8 @@ def set_image_resizer(config_dict, size):
     
     if image_resizer.HasField("keep_aspect_ratio_resizer"):
         image_resizer.keep_aspect_ratio_resizer.pad_to_max_dimension = True
-        image_resizer.max_dimension = size
-        image_resizer.min_dimension = size
+        image_resizer.keep_aspect_ratio_resizer.max_dimension = size
+        image_resizer.keep_aspect_ratio_resizer.min_dimension = size
 
     elif image_resizer.HasField("fixed_shape_resizer"):
         pass
