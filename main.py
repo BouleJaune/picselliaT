@@ -146,8 +146,8 @@ def set_image_resizer(config_dict, shape):
         raise ValueError("Unknown model type: {}".format(meta_architecture))
     
     if image_resizer.HasField("keep_aspect_ratio_resizer"):
-        image_resizer.keep_aspect_ratio_resizer.max_dimension = shape[0]
-        image_resizer.keep_aspect_ratio_resizer.min_dimension = shape[1]
+        image_resizer.keep_aspect_ratio_resizer.max_dimension = shape[1]
+        image_resizer.keep_aspect_ratio_resizer.min_dimension = shape[0]
 
     elif image_resizer.HasField("fixed_shape_resizer"):
         image_resizer.fixed_shape_resizer.height = shape[1]
@@ -196,7 +196,7 @@ def edit_masks(configs, mask_type="PNG_MASKS"):
     else:
         raise ValueError("Wrong Mask type provided")
 
-def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, eval_number, shape,
+def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, eval_number, resizer_size=None,
         annotation_type="polygon", batch_size=None, learning_rate=None):
     '''
         Suppose que la label_map et les .record sont générés
@@ -250,8 +250,10 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
 
     if annotation_type=="polygon":
         edit_masks(configs, mask_type="PNG_MASKS")
-
-    set_image_resizer(configs, shape)
+   
+    if resizer_size is not None:
+        set_image_resizer(configs, resizer_size)
+        
     edit_eval_config(configs, annotation_type, eval_number)
     update_num_classes(configs, label_map)
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
