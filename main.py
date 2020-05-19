@@ -134,7 +134,7 @@ def update_num_classes(config_dict, label_map):
         raise ValueError("Expected the model to be one of 'faster_rcnn' or 'ssd'.")
 
 
-def set_image_resizer(config_dict, size):
+def set_image_resizer(config_dict, shape):
 
     model_config = config_dict["model"]
     meta_architecture = model_config.WhichOneof("model")
@@ -146,12 +146,12 @@ def set_image_resizer(config_dict, size):
         raise ValueError("Unknown model type: {}".format(meta_architecture))
     
     if image_resizer.HasField("keep_aspect_ratio_resizer"):
-        image_resizer.keep_aspect_ratio_resizer.pad_to_max_dimension = True
-        image_resizer.keep_aspect_ratio_resizer.max_dimension = size
-        image_resizer.keep_aspect_ratio_resizer.min_dimension = size
+        image_resizer.keep_aspect_ratio_resizer.max_dimension = shape[0]
+        image_resizer.keep_aspect_ratio_resizer.min_dimension = shape[1]
 
     elif image_resizer.HasField("fixed_shape_resizer"):
-        pass
+        image_resizer.fixed_shape_resizer.height = shape[1]
+        image_resizer.fixed_shape_resizer.width = shape[0]
 
 def edit_eval_config(config_dict, annotation_type, eval_number):
     eval_config = config_dict["eval_config"]
@@ -196,7 +196,7 @@ def edit_masks(configs, mask_type="PNG_MASKS"):
     else:
         raise ValueError("Wrong Mask type provided")
 
-def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, eval_number, size,
+def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, eval_number, shape,
         annotation_type="polygon", batch_size=None, learning_rate=None):
     '''
         Suppose que la label_map et les .record sont générés
@@ -251,7 +251,7 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
     if annotation_type=="polygon":
         edit_masks(configs, mask_type="PNG_MASKS")
 
-    set_image_resizer(configs, size)
+    set_image_resizer(configs, shape)
     edit_eval_config(configs, annotation_type, eval_number)
     update_num_classes(configs, label_map)
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
