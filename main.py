@@ -395,7 +395,8 @@ def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run
           checkpoint_dir,
           eval_dir,
           graph_hook_fn=graph_rewriter_fn)
-    return metrics
+    return {k:str(round(v, 3)) for k,v in metrics.items()}
+
 
 
 def tfevents_to_dict(path):
