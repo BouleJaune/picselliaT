@@ -134,7 +134,7 @@ def update_num_classes(config_dict, label_map):
         raise ValueError("Expected the model to be one of 'faster_rcnn' or 'ssd'.")
 
 
-def set_image_resizer(config_dict, resizer, param_dict):
+def set_image_resizer(config_dict, size):
 
     model_config = config_dict["model"]
     meta_architecture = model_config.WhichOneof("model")
@@ -145,6 +145,14 @@ def set_image_resizer(config_dict, resizer, param_dict):
     else:
         raise ValueError("Unknown model type: {}".format(meta_architecture))
     
+    if image_resizer.HasField("keep_aspect_ratio_resizer"):
+        image_resizer.keep_aspect_ratio_resizer.pad_to_max_dimension = True
+        image_resizer.max_dimension = size
+        image_resizer.min_dimension = size
+        
+    elif image_resizer.HasField("fixed_shape_resizer"):
+        pass
+
 def edit_eval_config(config_dict, annotation_type, eval_number):
     eval_config = config_dict["eval_config"]
     eval_config.num_visualizations = 0
