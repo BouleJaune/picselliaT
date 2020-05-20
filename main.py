@@ -25,6 +25,9 @@ from object_detection import exporter
 from object_detection.protos import pipeline_pb2
 
 
+from tensorflow.python.util import deprecation
+deprecation._PRINT_DEPRECATION_WARNINGS = False
+
 def create_label_map(json_file_path):
     '''
         Génère un fichier label_map.pbtxt en protobuf text à partir du fichier d'annotations.json
@@ -253,7 +256,7 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
    
     if resizer_size is not None:
         set_image_resizer(configs, resizer_size)
-        
+
     edit_eval_config(configs, annotation_type, eval_number)
     update_num_classes(configs, label_map)
     config_proto = config_util.create_pipeline_proto_from_configs(configs)
