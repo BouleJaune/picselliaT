@@ -474,9 +474,7 @@ def infer(path_list, exported_model_dir, label_map_path, results_dir, num_infer=
             s = []
             m = []
             k = 0
-            # print(category_index)
             for classe in classes:
-                # if classe in category_index.keys():
                 b.append(boxes[k])
                 c.append(classe)
                 s.append(scores[k])
@@ -485,7 +483,6 @@ def infer(path_list, exported_model_dir, label_map_path, results_dir, num_infer=
                 k+=1
             boxes = np.array(b)
             classes = np.array(c)
-            # print(scores)
             scores = np.array(s)
             if masks is not None:
                 masks = np.array(m)
@@ -498,7 +495,7 @@ def infer(path_list, exported_model_dir, label_map_path, results_dir, num_infer=
                                                 category_index,
                                                 instance_masks=masks,
                                                 use_normalized_coordinates=True,
-                                                line_thickness=7,
+                                                line_thickness=3,
                                                 min_score_thresh=min_score_thresh)
 
             img_name = img_path.split("/")[-1]
