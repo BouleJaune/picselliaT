@@ -263,7 +263,7 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
 def train(master='', save_summaries_secs=30, task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1, ps_tasks=0, 
                     ckpt_dir='', conf_dir='', train_config_path='', input_config_path='', model_config_path=''):   
    
-    global deprecation._PRINT_DEPRECATION_WARNINGS = False
+    deprecation._PRINT_DEPRECATION_WARNINGS = False
     pipeline_config_path = os.path.join(conf_dir,"pipeline.config")
     configs = config_util.get_configs_from_pipeline_file(pipeline_config_path)
 
@@ -363,7 +363,7 @@ def train(master='', save_summaries_secs=30, task=0, num_clones=1, clone_on_cpu=
 
 def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run_once=True):
 
-    global deprecation._PRINT_DEPRECATION_WARNINGS = False
+    deprecation._PRINT_DEPRECATION_WARNINGS = False
     tf.reset_default_graph()
     tf.gfile.MakeDirs(eval_dir)
     configs = config_util.get_configs_from_pipeline_file(os.path.join(config_dir, "pipeline.config"))
@@ -420,7 +420,7 @@ def tfevents_to_dict(path):
 def export_infer_graph(ckpt_dir, exported_model_dir, pipeline_config_path,
                         write_inference_graph=False, input_type="image_tensor", input_shape=None):
     
-    global deprecation._PRINT_DEPRECATION_WARNINGS = False
+    deprecation._PRINT_DEPRECATION_WARNINGS = False
     tf.reset_default_graph()
     pipeline_config_path = os.path.join(pipeline_config_path,"pipeline.config")
     config_dict = config_util.get_configs_from_pipeline_file(pipeline_config_path)
