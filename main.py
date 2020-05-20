@@ -23,10 +23,7 @@ from object_detection.legacy import evaluator
 from google.protobuf import text_format
 from object_detection import exporter
 from object_detection.protos import pipeline_pb2
-
-
 from tensorflow.python.util import deprecation
-deprecation._PRINT_DEPRECATION_WARNINGS = False
 
 def create_label_map(json_file_path):
     '''
@@ -265,18 +262,19 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
 
 def train(master='', save_summaries_secs=30, task=0, num_clones=1, clone_on_cpu=False, worker_replicas=1, ps_tasks=0, 
                     ckpt_dir='', conf_dir='', train_config_path='', input_config_path='', model_config_path=''):   
-    train_dir = ckpt_dir
+   
+    deprecation._PRINT_DEPRECATION_WARNINGS = False
     pipeline_config_path = os.path.join(conf_dir,"pipeline.config")
     configs = config_util.get_configs_from_pipeline_file(pipeline_config_path)
 
     tf.logging.set_verbosity(tf.logging.INFO)
-    assert train_dir, '`train_dir` is missing.'
-    if task == 0: tf.gfile.MakeDirs(train_dir)
+    assert ckpt_dir, '`ckpt_dir` is missing.'
+    if task == 0: tf.gfile.MakeDirs(ckpt_dir)
     if pipeline_config_path:
         configs = config_util.get_configs_from_pipeline_file(pipeline_config_path)
         if task == 0:
             tf.gfile.Copy(pipeline_config_path,
-                          os.path.join(train_dir, 'pipeline.config'),
+                          os.path.join(ckpt_dir, 'pipeline.config'),
                           overwrite=True)
     else:
         configs = config_util.get_configs_from_multiple_files(
@@ -287,7 +285,7 @@ def train(master='', save_summaries_secs=30, task=0, num_clones=1, clone_on_cpu=
             for name, config in [('model.config', model_config_path),
                                 ('train.config', train_config_path),
                                 ('input.config', input_config_path)]:
-                tf.gfile.Copy(config, os.path.join(train_dir, name),
+                tf.gfile.Copy(config, os.path.join(ckpt_dir, name),
                             overwrite=True)
 
     model_config = configs['model']
@@ -359,12 +357,13 @@ def train(master='', save_summaries_secs=30, task=0, num_clones=1, clone_on_cpu=
         ps_tasks,
         worker_job_name,
         is_chief,
-        train_dir,
+        ckpt_dir,
         graph_hook_fn=graph_rewriter_fn,
         save_summaries_secs=save_summaries_secs)
 
 def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run_once=True):
 
+    deprecation._PRINT_DEPRECATION_WARNINGS = False
     tf.reset_default_graph()
     tf.gfile.MakeDirs(eval_dir)
     configs = config_util.get_configs_from_pipeline_file(os.path.join(config_dir, "pipeline.config"))
@@ -420,6 +419,8 @@ def tfevents_to_dict(path):
 
 def export_infer_graph(ckpt_dir, exported_model_dir, pipeline_config_path,
                         write_inference_graph=False, input_type="image_tensor", input_shape=None):
+    
+    deprecation._PRINT_DEPRECATION_WARNINGS = False
     tf.reset_default_graph()
     pipeline_config_path = os.path.join(pipeline_config_path,"pipeline.config")
     config_dict = config_util.get_configs_from_pipeline_file(pipeline_config_path)
