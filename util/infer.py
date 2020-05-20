@@ -13,7 +13,7 @@ import random
 
 
 
-def infer(path_list, exported_model_dir, label_map_path, results_dir, num_infer=5, min_score_thresh=0.5):
+def infer(path_list, exported_model_dir, label_map_path, results_dir, num_infer=5, min_score_thresh=0.7):
     '''saved_model must be saved with input_type = "image_tensor"
     '''
     saved_model_path = exported_model_dir+"saved_model/"
@@ -85,7 +85,7 @@ def infer(path_list, exported_model_dir, label_map_path, results_dir, num_infer=
 
             img_name = img_path.split("/")[-1]
             Image.fromarray(img).save(results_dir+img_name)
-            # display(Image.fromarray(img))
+            display(Image.fromarray(img))
 
 
 
