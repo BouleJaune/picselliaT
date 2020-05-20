@@ -25,6 +25,8 @@ from object_detection import exporter
 from object_detection.protos import pipeline_pb2
 from tensorflow.python.util import deprecation
 
+
+
 def create_label_map(json_file_path):
     '''
         Génère un fichier label_map.pbtxt en protobuf text à partir du fichier d'annotations.json
@@ -264,6 +266,7 @@ def train(master='', save_summaries_secs=30, task=0, num_clones=1, clone_on_cpu=
                     ckpt_dir='', conf_dir='', train_config_path='', input_config_path='', model_config_path=''):   
    
     deprecation._PRINT_DEPRECATION_WARNINGS = False
+    deprecation.silence()
     pipeline_config_path = os.path.join(conf_dir,"pipeline.config")
     configs = config_util.get_configs_from_pipeline_file(pipeline_config_path)
 
