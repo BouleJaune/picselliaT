@@ -34,7 +34,9 @@ from __future__ import print_function
 from abc import ABCMeta
 from abc import abstractmethod
 import collections
-import logging
+# import logging
+from tensorflow import logging as logging
+
 import unicodedata
 import numpy as np
 import six
