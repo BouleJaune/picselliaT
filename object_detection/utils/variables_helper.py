@@ -159,7 +159,7 @@ def get_variables_available_in_checkpoint(variables,
     else:
     #   logging.warning('Variable [%s] is not available in checkpoint',
     #                   variable_name)
-    pass
+        pass
   if isinstance(variables, list):
     return list(vars_in_ckpt.values())
   return vars_in_ckpt
