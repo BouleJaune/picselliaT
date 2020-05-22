@@ -23,42 +23,22 @@ import random
 
 
 
-def create_label_map(json_file_path):
-    '''
-        Génère un fichier label_map.pbtxt en protobuf text à partir du fichier d'annotations.json
-        La label_map associe à chaque label un id.
-        label_map_util.load_labelmap("label_map.pbtxt") pour load une label map en format protobuf
-        label_map = label_map_util.get_label_map_dict(label_map) pour l'avoir sous forme de dictionnaire
-        
-        Args:
-            json_file_path: Doit contenir le nom du fichier  (path/to/json/annotations.json)
-
-    '''
-    with open(json_file_path) as json_file:
-        data = json.load(json_file)
-    categories = data["categories"]
-    with open("label_map.pbtxt", "w+") as labelmap_file:
-        k=0
-        for category in categories:
-            k+=1
-            name = category["name"]
-            labelmap_file.write("item {\n\tname: \""+name+"\""+"\n\tid: "+str(k)+"\n}\n")
-        labelmap_file.close()
-    print("label_map.pbtxt crée")
         
 
 
 
 def create_record_files(label_path, record_dir, tfExample_generator, annotation_type):
     '''
-        Ne gère que des fichiers d'annotations entièrement avec geometry = polygon et sans 'vide'!!
+        Function used to create the TFRecord files used for the training and evaluation.
         
-        Génère un fichier .record à partir et l'enregistre dans output_path. 
-        à voir pour split en train/val
+        TODO: Shard files for large dataset
+
 
         Args:
-            output_path: Doit contenir le nom du fichier (path/to/record/file.record)
-            label_map: Sous format protobuf
+            label_path: Path to the label map file.
+            record_dir: Path used to write the records files.
+            tfExample_generator: Use the generator from the Picsell.ia SDK by default or provide your own generator.
+            annotation_type: "polygon" or "rectangle", depending on your project type. Polygon will compute the masks from your polygon-type annotations. 
     '''
     label_map = label_map_util.load_labelmap(label_path)
     label_map = label_map_util.get_label_map_dict(label_map) 
@@ -112,14 +92,14 @@ def create_record_files(label_path, record_dir, tfExample_generator, annotation_
         print('Successfully created the TFRecords: {}'.format(output_path))
 
 def update_num_classes(config_dict, label_map):
-    ''' Mets à jour num_classes dans la config protobuf par rapport au nombre de label de la label_map
+    ''' 
+    Update the number of classes inside the protobuf configuration dictionnary depending on the number of classes inside the label map.
 
         Args :
-        config_dict:  
-        label_map: label_map sous forme protobuf
-
+            config_dict:  A configuration dictionnary loaded from the protobuf file with config_util.get_configs_from_pipeline_file().
+            label_map: Protobuf label_map loaded with label_map_util.load_labelmap()
         Raises:
-            ValueError si le modèle n'est pas reconnu. (backbone)
+            ValueError if the backbone architecture isn't known.
     '''
     model_config = config_dict["model"]
     n_classes = len(label_map.item)
@@ -133,6 +113,18 @@ def update_num_classes(config_dict, label_map):
 
 
 def set_image_resizer(config_dict, shape):
+    '''
+        Update the image resizer shapes.
+
+        Args:
+            config_dict:  A configuration dictionnary loaded from the protobuf file with config_util.get_configs_from_pipeline_file().
+            shape: The new shape for the image resizer. 
+                    [max_dimension, min_dimension] for the keep_aspect_ratio_resizer (default resizer for faster_rcnn backbone). 
+                    [width, height] for the fixed_shape_resizer (default resizer for SSD backbone)
+
+        Raises: 
+            ValueError if the backbone architecture isn't known.
+    '''
 
     model_config = config_dict["model"]
     meta_architecture = model_config.WhichOneof("model")
@@ -152,6 +144,21 @@ def set_image_resizer(config_dict, shape):
         image_resizer.fixed_shape_resizer.width = shape[0]
 
 def edit_eval_config(config_dict, annotation_type, eval_number):
+    '''
+        Update the eval_config protobuf message from a config_dict.
+        Checks if the metrics_set is the right one then update the evaluation number. 
+
+        Args:
+            config_dict: A configuration dictionnary loaded from the protobuf file with config_util.get_configs_from_pipeline_file().
+            annotation_type: Should be either "rectangle" or "polygon". Depends on your project type. 
+            eval_number: The number of images you want to run your evaluation on. 
+        
+        Raises:
+            ValueError Wrong annotation type provided. If you didn't provide the right annotation_type
+            ValueError "eval_number isn't an int". If you didn't provide a int for the eval_number.
+    '''
+
+
     eval_config = config_dict["eval_config"]
     eval_config.num_visualizations = 0
     if annotation_type=="rectangle":
@@ -163,12 +170,19 @@ def edit_eval_config(config_dict, annotation_type, eval_number):
     if isinstance(eval_number, int):
         eval_config.num_examples = eval_number
     else: 
-        print("eval_number has type ", type(eval_number), " and not int")
+        raise ValueError("eval_number isn't an int")
 
 
 def update_different_paths(config_dict, ckpt_path, label_map_path, train_record_path, eval_record_path):
     '''
-        Set les bons paths dans le fichier de configuration protobuf.
+        Update the different paths required for the whole configuration.
+
+    Args: 
+        config_dict: A configuration dictionnary loaded from the protobuf file with config_util.get_configs_from_pipeline_file().
+        ckpt_path: Path to your checkpoint. 
+        label_map_path: Path to your label map.
+        train_record_path: Path to your train record file.
+        eval_record_path: Path to your eval record file.
 
     '''
     config_dict["train_config"].fine_tune_checkpoint = ckpt_path
@@ -177,33 +191,51 @@ def update_different_paths(config_dict, ckpt_path, label_map_path, train_record_
     config_util._update_tf_record_input_path(config_dict["eval_input_config"], eval_record_path)
 
 
-def edit_masks(configs, mask_type="PNG_MASKS"):
-    """Ajoute la prise en compte des masks dans la configuration.
-        Args:
-            configs: Dictionary of configuration objects.
-            mask_type: String name to identify mask type, either "PNG_MASKS" or "NUMERICAL_MASKS"
+def edit_masks(config_dict, mask_type="PNG_MASKS"):
     """
-    configs["train_input_config"].load_instance_masks = True
-    configs["eval_input_config"].load_instance_masks = True
+        Update the configuration to take into consideration the right mask_type. By default we record mask as "PNG_MASKS".
+
+        Args:
+            config_dict: A configuration dictionnary loaded from the protobuf file with config_util.get_configs_from_pipeline_file().
+            mask_type: String name to identify mask type, either "PNG_MASKS" or "NUMERICAL_MASKS"
+        Raise:
+            ValuerError if the mask type isn't known.
+    """
+
+    config_dict["train_input_config"].load_instance_masks = True
+    config_dict["eval_input_config"].load_instance_masks = True
     if mask_type=="PNG_MASKS":
-        configs["train_input_config"].mask_type = 2
-        configs["eval_input_config"].mask_type = 2
+        config_dict["train_input_config"].mask_type = 2
+        config_dict["eval_input_config"].mask_type = 2
     elif mask_type=="NUMERICAL_MASKS":
-        configs["train_input_config"].mask_type = 1
-        configs["eval_input_config"].mask_type = 1
+        config_dict["train_input_config"].mask_type = 1
+        config_dict["eval_input_config"].mask_type = 1
     else:
         raise ValueError("Wrong Mask type provided")
 
-def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, eval_number, resizer_size=None,
-        annotation_type="polygon", batch_size=None, learning_rate=None):
+def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, eval_number, annotation_type, 
+                batch_size=None, learning_rate=None, resizer_size=None):
     '''
-        Suppose que la label_map et les .record sont générés
-        Potentiellement mettre en argument la label_map plutôt que la reload
-        Pour le moment edit : paths, num_classes, batch_size, learning_rate
+        Wrapper to edit the essential values inside the base configuration protobuf file provided with an object-detection/segmantation checkpoint.
+        This configuration file is what will entirely define your model, pre-processing, training, evaluation etc. It is the most important file of a model with the checkpoint file and should never be deleted. 
+        This is why it is saved in almost every directory where you did something to keep redondancy but also to be sure to have the right config file used at this moment.
+        For advanced users, if you want to dwell deep inside the configuration file you should read the proto definitions inside the proto directory of the object-detection API.
+
         Args: 
-            model_path: path du dossier du modèle
-            batch_size: batch_size, si non précisé, pas de modifications et garde la valeur de base
-            learning_rate: learning_rate, si non précisé, pas de modifications et garde la valeur de base
+            Required:
+                model_selected: The checkpoint you want to resume from.
+                config_output_dir: The path where you want to save your edited protobuf configuration file.
+                num_steps: The number of steps you want to train on.
+                label_map_path: The path to your label_map.pbtxt file.
+                record_dir: The path to the directory where your TFRecord files are saved.
+                eval_number: The number of images you want to evaluate on.
+                annotation_type: Should be either "rectangle" or "polygon", depending on how you annotated your images.
+
+            Optional:
+                batch_size: The batch size you want to use. If not provided it will use the previous one. 
+                learning_rate: The learning rate you want to use for the training. If not provided it will use the previous one. 
+                                Please see config.utils_update_initial_learning_rate() inside the object_detection folder for indepth details on what happens when updating it.
+                resizer_size: The shape used to update your image resizer. Please see set_image_resizer() for more details on this. If not provided it will use the previous one.            
 
     '''
 
@@ -230,17 +262,6 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
                             eval_record_path=os.path.join(record_dir,"eval.record"))
 
     if learning_rate is not None:
-        ''' Update learning rate
-        Change le LR initial puis les schedules proportionnellement, exemple :
-        LR_initial = 10
-        LR_schedule = 1
-        new_LR = 100
-        new_LR_schedule = 10
-        fonctionnenement de schedule:
-        schedule : {step: n_steps 
-                        learning_rate: lr}
-        Mets à jour le LR à n_steps par lr, plusieurs schedule, plusieurs màj'''
-
         config_util._update_initial_learning_rate(configs, learning_rate)
 
     if batch_size is not None:
@@ -359,7 +380,23 @@ def train(master='', save_summaries_secs=30, task=0, num_clones=1, clone_on_cpu=
         graph_hook_fn=graph_rewriter_fn,
         save_summaries_secs=save_summaries_secs)
 
-def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run_once=True):
+def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False):
+
+    '''
+        Function used to evaluate your trained model. 
+
+        Args: 
+            Required:               
+                eval_dir: The directory where the tfevent file will be saved.
+                config_dir: The protobuf configuration directory.
+                checkpoint_dir: The directory where the checkpoint you want to evaluate is.
+            
+            Optional:
+                eval_training_data: Is set to True the evaluation will be run on the training dataset.
+
+        Returns:
+            A dictionnary of metrics ready to be sent to the picsell.ia platform.
+    '''
 
     tf.reset_default_graph()
     tf.gfile.MakeDirs(eval_dir)
@@ -380,8 +417,7 @@ def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run
     categories = label_map_util.create_categories_from_labelmap(
       input_config.label_map_path)
 
-    if run_once:
-        eval_config.max_evals = 1
+    eval_config.max_evals = 1
 
     graph_rewriter_fn = None
     if 'graph_rewriter_config' in configs:
@@ -401,6 +437,14 @@ def evaluate(eval_dir, config_dir, checkpoint_dir, eval_training_data=False, run
 
 
 def tfevents_to_dict(path):
+    '''Get a dictionnary of scalars from the tfevent inside the training directory.
+
+        Args: 
+            path: The path to the training directory where a tfevent file is saved.
+        
+        Returns:
+            A dictionnary of scalars logs.
+    '''
     event = [filename for filename in os.listdir(path) if filename.startswith("events.out")][0]
     event_acc = EventAccumulator(os.path.join(path,event)).Reload()
     logs = dict()
@@ -417,6 +461,16 @@ def tfevents_to_dict(path):
 def export_infer_graph(ckpt_dir, exported_model_dir, pipeline_config_path,
                         write_inference_graph=False, input_type="image_tensor", input_shape=None):
     
+    ''' Export your checkpoint to a saved_model.pb file
+
+        Args:
+            Required:
+                ckpt_dir: The directory where your checkpoint to export is located.
+                exported_model_dir: The directory where you want to save your model.
+                pipeline_çonfig_path: The directory where you protobuf configuration is located.
+
+    '''
+
     tf.reset_default_graph()
     pipeline_config_path = os.path.join(pipeline_config_path,"pipeline.config")
     config_dict = config_util.get_configs_from_pipeline_file(pipeline_config_path)
@@ -431,8 +485,22 @@ def export_infer_graph(ckpt_dir, exported_model_dir, pipeline_config_path,
 
 
 
-def infer(path_list, exported_model_dir, label_map_path, results_dir, num_infer=5, min_score_thresh=0.7):
-    '''saved_model must be saved with input_type = "image_tensor"
+def infer(path_list, exported_model_dir, label_map_path, results_dir, disp=True, num_infer=5, min_score_thresh=0.7):
+
+    ''' Use your exported model to infer on a path list of images. 
+
+        Args:
+            Required:
+                path_list: A list of images paths to infer on.
+                exported_model_dir: The path used to saved your model.
+                label_mapt_path: The path to your label_map file.
+                results_dir: The directory where you want to save your infered images.
+
+            Optional:
+                disp: Set to false if you are not in an interactive python environment. Will display image in the environment if set to True.
+                num_infer: The number of images you want to infer on. 
+                min_score_tresh: The minimal confidence treshold to keep the detection.
+
     '''
     saved_model_path = exported_model_dir+"saved_model/"
     predict_fn = tf.contrib.predictor.from_saved_model(saved_model_path)
@@ -500,7 +568,9 @@ def infer(path_list, exported_model_dir, label_map_path, results_dir, num_infer=
 
             img_name = img_path.split("/")[-1]
             Image.fromarray(img).save(results_dir+img_name)
-            display(Image.fromarray(img))
+            
+            if disp == True:
+                display(Image.fromarray(img))
 
 
 
