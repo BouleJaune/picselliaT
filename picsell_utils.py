@@ -502,7 +502,7 @@ def infer(path_list, exported_model_dir, label_map_path, results_dir, disp=True,
                 min_score_tresh: The minimal confidence treshold to keep the detection.
 
     '''
-    saved_model_path = exported_model_dir+"saved_model/"
+    saved_model_path = os.path.join(exported_model_dir, "saved_model")
     predict_fn = tf.contrib.predictor.from_saved_model(saved_model_path)
     random.shuffle(path_list)
     path_list = path_list[:num_infer]
@@ -567,7 +567,7 @@ def infer(path_list, exported_model_dir, label_map_path, results_dir, disp=True,
                                                 min_score_thresh=min_score_thresh)
 
             img_name = img_path.split("/")[-1]
-            Image.fromarray(img).save(results_dir+img_name)
+            Image.fromarray(img).save(os.path.join(results_dir,img_name))
             
             if disp == True:
                 display(Image.fromarray(img))
