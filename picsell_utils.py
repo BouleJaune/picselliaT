@@ -198,8 +198,8 @@ def edit_masks(config_dict, mask_type="PNG_MASKS"):
         Args:
             config_dict: A configuration dictionnary loaded from the protobuf file with config_util.get_configs_from_pipeline_file().
             mask_type: String name to identify mask type, either "PNG_MASKS" or "NUMERICAL_MASKS"
-        Raise:
-            ValuerError if the mask type isn't known.
+        Raises:
+            ValueError if the mask type isn't known.
     """
 
     config_dict["train_input_config"].load_instance_masks = True
@@ -216,7 +216,7 @@ def edit_masks(config_dict, mask_type="PNG_MASKS"):
 def edit_config(model_selected, config_output_dir, num_steps, label_map_path, record_dir, eval_number, annotation_type, 
                 batch_size=None, learning_rate=None, resizer_size=None):
     '''
-        Wrapper to edit the essential values inside the base configuration protobuf file provided with an object-detection/segmantation checkpoint.
+        Wrapper to edit the essential values inside the base configuration protobuf file provided with an object-detection/segmentation checkpoint.
         This configuration file is what will entirely define your model, pre-processing, training, evaluation etc. It is the most important file of a model with the checkpoint file and should never be deleted. 
         This is why it is saved in almost every directory where you did something to keep redondancy but also to be sure to have the right config file used at this moment.
         For advanced users, if you want to dwell deep inside the configuration file you should read the proto definitions inside the proto directory of the object-detection API.
@@ -234,7 +234,7 @@ def edit_config(model_selected, config_output_dir, num_steps, label_map_path, re
             Optional:
                 batch_size: The batch size you want to use. If not provided it will use the previous one. 
                 learning_rate: The learning rate you want to use for the training. If not provided it will use the previous one. 
-                                Please see config.utils_update_initial_learning_rate() inside the object_detection folder for indepth details on what happens when updating it.
+                                Please see config_utils.update_initial_learning_rate() inside the object_detection folder for indepth details on what happens when updating it.
                 resizer_size: The shape used to update your image resizer. Please see set_image_resizer() for more details on this. If not provided it will use the previous one.            
 
     '''
