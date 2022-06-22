@@ -1,5 +1,5 @@
 picsellia==0.7.6
-numpy==1.17.0
+numpy==1.22.0
 tensorboard==1.15.2
 tensorflow-estimator==1.15.2
 tensorflow-gpu==1.15.2
