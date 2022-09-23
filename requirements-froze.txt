@@ -73,7 +73,7 @@ Pillow==7.1.2
 progressbar==2.5
 prometheus-client==0.7.1
 prompt-toolkit==3.0.5
-protobuf==3.11.3
+protobuf==3.18.3
 protobuf-to-dict==0.1.0
 ptyprocess==0.6.0
 pycocotools==2.0.0
